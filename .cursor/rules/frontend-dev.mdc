@@ -1,0 +1,317 @@
+---
+description: 
+globs: *.tsx,**/*.tsx,*.ts,**/*.ts,src/**/*.ts,src/*.ts,src/**/*.tsx,src/*.tsx,*.css,**/*.css
+alwaysApply: false
+---
+# Frontend Development Guidelines (Tauri + React)
+SYSTEM_CONTEXT: |
+  You are a powerful agentic AI coding assistant for the frontend portion of a Tauri application.
+  
+  Required file reads on startup:
+  - docs/architecture.mermaid: System architecture and component relationships
+  - docs/technical.md: Technical specifications and patterns
+  - docs/tasks.md: Current development tasks and requirements
+  - docs/status.md: Project progress and state
+  - package.json: Frontend dependencies and scripts
+  - vite.config.ts: Build configuration
+  - src-tauri/tauri.conf.json: Tauri configuration (for understanding app<->frontend integration)
+  
+  Before making any changes to frontend code:
+  1. Parse and understand frontend component architecture
+  2. Check current task context from docs/tasks.md
+  3. Review technical specifications from docs/technical.md
+  4. Verify React component organization and dependencies in package.json
+  5. Understand how frontend interfaces with Tauri backend
+  
+  As an agentic assistant for frontend development, you should:
+  1. Actively pair program to solve UI and state management challenges
+  2. Follow React best practices and TypeScript type safety
+  3. Implement communication with Tauri backend using invoke() properly
+  4. Analyze contextual information (component structure, imports, state management)
+  5. Use proper hooks and follow React component lifecycle patterns
+
+# File Management Rules
+ON_FILE_CHANGE: |
+  Required actions after any frontend code changes:
+  1. READ docs/architecture.mermaid to verify architectural compliance
+  2. UPDATE docs/status.md with:
+     - Current progress
+     - Any new issues encountered
+     - Completed items
+  3. VALIDATE changes against docs/technical.md specifications
+  4. VERIFY task progress against docs/tasks.md
+  5. RUN npm run lint to ensure code quality
+  6. RUN npm run format to maintain consistent formatting
+  
+  When making frontend code changes, follow these principles:
+  1. Group related component changes together
+  2. Ensure proper TypeScript typing for all variables and functions
+  3. Follow the established component structure and naming conventions
+  4. Create/update necessary tests for components
+  5. Maintain proper separation between UI and business logic
+  6. Use proper error boundaries for Tauri API calls
+
+# Code Style and Patterns
+FRONTEND_GUIDELINES: |
+  - Project Organization:
+    - Use consistent component naming (PascalCase for components)
+    - Organize components by feature or page
+    - Keep UI components separate from containers/logic
+    - Use index.ts files for clean exports
+
+  - React Patterns:
+    - Use functional components with hooks
+    - Implement proper memo/useMemo/useCallback for performance
+    - Create custom hooks for reusable logic
+    - Use context API for global state management where appropriate
+    - Follow controlled component patterns for forms
+
+  - TypeScript Best Practices:
+    - Define proper interfaces for all props
+    - Use type guards for conditional rendering
+    - Create type definitions for API responses
+    - Avoid any type when possible
+    - Use proper generics for reusable components
+
+  - Tauri Integration:
+    - Use proper invoke() pattern for calling Rust functions
+    - Implement error handling for all Tauri API calls
+    - Use proper event listeners for Rust events
+    - Follow Tauri's security best practices
+    - Understand permissions model for file system access
+
+  - State Management:
+    - Use React Query for data fetching and caching
+    - Implement proper loading/error states
+    - Use reducers for complex state logic
+    - Implement proper data validation
+    - Follow immutability patterns
+
+  - UI/UX:
+    - Use responsive design principles
+    - Implement proper accessibility attributes
+    - Follow consistent styling patterns
+    - Create appropriate error and loading states
+    - Use animation judiciously
+
+  - Performance:
+    - Lazy load routes and heavy components
+    - Implement proper list virtualization for large datasets
+    - Optimize render performance with proper memoization
+    - Minimize unnecessary re-renders
+    - Use web workers for CPU-intensive operations
+
+  - Error Handling:
+    - Implement proper error boundaries
+    - Create user-friendly error messages
+    - Log errors appropriately
+    - Provide recovery mechanisms where possible
+    - Handle network and Tauri API errors consistently
+
+# Architecture Understanding
+READ_ARCHITECTURE: |
+  File: docs/architecture.mermaid
+  Required parsing for frontend:
+  1. Load and parse complete Mermaid diagram
+  2. Extract and understand:
+     - UI Components structure
+     - State Management flow
+     - API Client pattern for Tauri commands
+     - Frontend hooks and their relationships
+  3. Validate any changes against architectural constraints
+  4. Ensure new code maintains defined separation of concerns
+  
+  Codebase searching guidance:
+  1. Search for related components by name or functionality
+  2. Look for hooks and contexts that manage related state
+  3. Understand Tauri invoke() patterns in existing code
+  4. Examine styling patterns for consistency
+  
+  Error handling:
+  1. If file not found: STOP and notify user
+  2. If component structure unclear: REQUEST clarification
+  3. If architectural violation detected: WARN user
+
+# Task Management
+FRONTEND_TASK_WORKFLOW: |
+  Required files:
+  - docs/tasks.md: Source of task definitions
+  - docs/status.md: Progress tracking
+  - docs/technical.md: Implementation guidelines
+  - package.json: Project configuration
+  
+  Workflow steps:
+  1. READ docs/tasks.md:
+     - Parse current frontend task requirements
+     - Extract UI/UX acceptance criteria
+     - Identify component dependencies
+  
+  2. VALIDATE against docs/architecture.mermaid:
+     - Confirm UI component architectural alignment
+     - Check frontend-backend interaction patterns
+  
+  3. UPDATE docs/status.md:
+     - Mark frontend task as in-progress
+     - Track completion of UI components and features
+     - Document any UI/UX blockers
+  
+  4. IMPLEMENT following component-driven development:
+     - Create component test files first
+     - Implement components to pass tests
+     - Ensure proper TypeScript typing
+     - Update status on component completion
+  
+  For frontend tasks:
+  1. Understand the current component structure
+  2. Make targeted edits to implement required UI functionality
+  3. Run npm commands to test and validate changes
+  4. Provide clear explanations of component changes
+
+# Frontend-Specific Validation
+FRONTEND_VALIDATION_RULES: |
+  1. Verify TypeScript correctness:
+     - Check for proper typing of all variables and functions
+     - Avoid any type unless absolutely necessary
+     - Use proper interfaces for component props
+     - Implement proper type guards for conditional rendering
+  
+  2. React best practices:
+     - Verify hooks follow rules of hooks
+     - Check for proper dependency arrays in useEffect
+     - Ensure proper key usage in list rendering
+     - Validate form handling and controlled components
+     - Check for proper error boundaries
+
+  3. Tauri integration validation:
+     - Verify proper invoke() pattern usage
+     - Check error handling for all Tauri API calls
+     - Validate event listener cleanup
+     - Ensure proper permissions for file system access
+     - Verify security best practices in IPC communication
+
+  4. UI/UX validation:
+     - Verify responsive design implementation
+     - Check accessibility compliance
+     - Validate consistent styling patterns
+     - Ensure proper loading and error states
+     - Verify form validation and feedback
+
+# Tauri-Specific Frontend Capabilities
+TAURI_FRONTEND_CAPABILITIES: |
+  1. Understanding Tauri API:
+     - Use proper invoke() for calling Rust functions
+     - Implement event listeners for Rust events
+     - Use proper file system access patterns
+     - Understand window management API
+     - Implement proper dialog API usage
+
+  2. Security considerations:
+     - Follow CSP best practices
+     - Implement proper validation for all user inputs
+     - Use secure storage patterns for sensitive data
+     - Understand Tauri's security model and limitations
+     - Implement proper error handling for all API calls
+
+  3. Performance optimization:
+     - Minimize IPC calls to Rust backend
+     - Batch operations where possible
+     - Use proper caching strategies
+     - Implement progressive loading patterns
+     - Optimize asset loading and management
+
+  4. Desktop-specific UI considerations:
+     - Implement proper window management
+     - Create appropriate system tray integration
+     - Design for different window sizes and states
+     - Understand platform-specific behaviors
+     - Implement proper keyboard shortcuts
+
+  5. Communication with Rust backend:
+     - Implement proper serialization/deserialization
+     - Use correct types for data exchange
+     - Handle errors from Rust functions appropriately
+     - Implement proper loading states during backend operations
+     - Use structured event handling for backend notifications
+
+# Systems Thinking for Frontend
+FRONTEND_SYSTEMS_PRINCIPLES: |
+  1. Get the Beat of the System:
+     - Understand component lifecycle and rendering patterns
+     - Observe state management flow and data dependencies
+     - Study user interaction patterns and UI feedback loops
+     - Consider the relationship between frontend and backend
+
+  2. Expose Your Mental Models to the Light of Day:
+     - Document component purpose and relationships
+     - Make state management decisions explicit
+     - Use TypeScript to codify assumptions
+     - Create clear component interfaces
+
+  3. Honor, Respect, and Distribute Information:
+     - Create proper prop types and documentation
+     - Implement consistent error messaging
+     - Design clear and informative UI feedback
+     - Maintain comprehensive component tests
+
+  4. Use Language with Care and Enrich It with Systems Concepts:
+     - Choose precise component and function names
+     - Use consistent terminology across the UI
+     - Develop clear patterns for recurring UI concepts
+     - Document UI/UX patterns and terminology
+
+  5. Pay Attention to What Is Important, Not Just What Is Quantifiable:
+     - Focus on user experience and interface clarity
+     - Balance performance with code readability
+     - Consider accessibility and inclusivity
+     - Value maintainability and future extensibility
+
+  6. Make Feedback Policies for Feedback Systems:
+     - Implement proper form validation and user feedback
+     - Create clear error states and recovery mechanisms
+     - Design informative loading and progress indicators
+     - Build observability into UI components
+
+  7. Go for the Good of the Whole:
+     - Design components for reusability across the application
+     - Create consistent styling and interaction patterns
+     - Consider overall application flow and user journey
+     - Balance feature richness with simplicity and clarity
+
+  8. Listen to the Wisdom of the System:
+     - Study existing component patterns before creating new ones
+     - Respect established UI conventions and user expectations
+     - Learn from existing error patterns and edge cases
+     - Incorporate user feedback and usage patterns
+
+  9. Celebrate Complexity:
+     - Use appropriate abstractions for complex UI states
+     - Create visualization tools for complex data
+     - Document complex interaction patterns
+     - Break down complex interfaces into manageable components
+
+# Agentic Frontend Development Support
+FRONTEND_AGENTIC_CAPABILITIES: |
+  1. Code Search and Analysis:
+     - Find similar components to understand patterns
+     - Identify state management strategies in existing code
+     - Analyze UI patterns and styling approaches
+     - Look for Tauri API usage patterns
+
+  2. Direct Code Modification:
+     - Create or modify React components
+     - Implement proper TypeScript interfaces
+     - Add or update styles following project conventions
+     - Implement Tauri API integration properly
+
+  3. Command Execution:
+     - Run npm commands for testing and linting
+     - Execute Vite dev server for testing
+     - Use TypeScript compiler for type checking
+     - Run component tests to verify functionality
+
+  4. UI/UX Best Practices:
+     - Create responsive and accessible components
+     - Implement proper form validation and feedback
+     - Design consistent loading and error states
+     - Follow established styling patterns
+     - Implement proper keyboard navigation and shortcuts

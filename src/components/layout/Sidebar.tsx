@@ -1,7 +1,7 @@
 import { Fragment } from 'react';
 import { NavLink } from 'react-router-dom';
 import { Dialog, Transition } from '@headlessui/react';
-import { X, LayoutDashboard, FlaskRound as Flask, Users, ArrowRightLeft, Settings, ClipboardList, FileText } from 'lucide-react';
+import { X, LayoutDashboard, FlaskRound as Flask, Users, ArrowRightLeft, Settings } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
 interface SidebarProps {

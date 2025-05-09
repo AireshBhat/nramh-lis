@@ -24,7 +24,7 @@ export default function Layout() {
         <BreadcrumbBar />
         
         {/* Main content with scrolling */}
-        <main className="flex-1 overflow-auto bg-gray-50 p-4">
+        <main className="flex-1 overflow-auto bg-gray-50 p-4 ml-0 md:ml-64">
           <Outlet />
         </main>
       </div>

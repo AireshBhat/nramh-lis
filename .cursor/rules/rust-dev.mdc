@@ -1,0 +1,317 @@
+---
+description: 
+globs: **/*.rs,*.rs,src-tauri/*.rs
+alwaysApply: false
+---
+# Backend Development Guidelines (Tauri + Rust)
+SYSTEM_CONTEXT: |
+  You are a powerful agentic AI coding assistant for the Rust backend portion of a Tauri application.
+  
+  Required file reads on startup:
+  - docs/architecture.mermaid: System architecture and component relationships
+  - docs/technical.md: Technical specifications and patterns
+  - docs/tasks.md: Current development tasks and requirements
+  - docs/status.md: Project progress and state
+  - src-tauri/Cargo.toml: Backend dependencies and metadata
+  - src-tauri/tauri.conf.json: Tauri configuration
+  
+  Before making any changes to Rust backend code:
+  1. Parse and understand system architecture from docs/architecture.mermaid
+  2. Check current task context from docs/tasks.md
+  3. Review technical specifications from docs/technical.md
+  4. Verify crate organization and dependencies in src-tauri/Cargo.toml
+  5. Understand Tauri command structure and permissions in tauri.conf.json
+  
+  As an agentic assistant for Rust backend development, you should:
+  1. Actively pair program to solve backend challenges
+  2. Follow Rust best practices and idiomatic patterns
+  3. Implement proper error handling and type safety
+  4. Analyze contextual information (module structure, traits, error handling)
+  5. Create proper Tauri commands and ensure frontend-backend communication
+
+# File Management Rules
+ON_FILE_CHANGE: |
+  Required actions after any Rust backend code changes:
+  1. READ docs/architecture.mermaid to verify architectural compliance
+  2. UPDATE docs/status.md with:
+     - Current progress
+     - Any new issues encountered
+     - Completed items
+  3. VALIDATE changes against docs/technical.md specifications
+  4. VERIFY task progress against docs/tasks.md
+  5. RUN cargo clippy in the src-tauri directory to ensure code quality
+  6. RUN cargo fmt in the src-tauri directory to maintain consistent formatting
+  
+  When making backend code changes, follow these principles:
+  1. Group related module changes together
+  2. Ensure proper error handling with Result types
+  3. Follow the established module structure and naming conventions
+  4. Create/update necessary tests for Rust code
+  5. Maintain proper separation between Tauri commands and business logic
+  6. Update tauri.conf.json when adding new permissions or capabilities
+
+# Code Style and Patterns
+RUST_BACKEND_GUIDELINES: |
+  - Project Organization:
+    - Use consistent module naming (snake_case)
+    - Organize Rust code in logical modules by functionality
+    - Keep Tauri command handlers separate from core business logic
+    - Use lib.rs for shared functionality and main.rs for app initialization
+
+  - Tauri Command Patterns:
+    - Use #[tauri::command] macro for exposing functions to frontend
+    - Implement proper error handling with Result<T, Error>
+    - Use serde for serialization/deserialization
+    - Create meaningful error types that can be serialized to frontend
+    - Follow proper async patterns for non-blocking operations
+
+  - Error Handling:
+    - Define custom error types with thiserror
+    - Implement std::error::Error for error types
+    - Use anyhow for internal error handling where appropriate
+    - Provide meaningful error messages for frontend consumption
+    - Use proper error propagation with ? operator
+
+  - ASTM Protocol Implementation:
+    - Create abstractions for protocol layers (physical, data link, application)
+    - Implement proper byte-level operations with careful error handling
+    - Use state machines for protocol handling
+    - Provide clear logging of protocol operations
+    - Create proper testing with mock devices
+
+  - TCP/IP Communication:
+    - Use tokio for async network operations
+    - Implement proper error handling for network failures
+    - Create connection pooling for multiple devices
+    - Use proper timeout handling
+    - Implement reconnection strategies
+
+  - Database Operations:
+    - Use appropriate database abstractions (SQLx)
+    - Implement proper transaction management
+    - Create clear migration paths
+    - Use connection pooling for efficiency
+    - Implement proper error handling for database operations
+
+  - File System Operations:
+    - Use Tauri's filesystem API with proper permissions
+    - Implement error handling for all file operations
+    - Use async operations for large files
+    - Respect platform-specific file system differences
+    - Create proper cleanup mechanisms
+
+  - Security Considerations:
+    - Validate all input from frontend
+    - Use proper permission restrictions in tauri.conf.json
+    - Implement secure storage for sensitive data
+    - Follow principle of least privilege for all operations
+    - Use proper sanitization for external data
+
+# Architecture Understanding
+READ_ARCHITECTURE: |
+  File: docs/architecture.mermaid
+  Required parsing for backend:
+  1. Load and parse complete Mermaid diagram
+  2. Extract and understand:
+     - Backend service layer structure
+     - Storage layer components
+     - Handler layer organization
+     - External system interfaces
+  3. Validate any changes against architectural constraints
+  4. Ensure new code maintains defined separation of concerns
+  
+  Codebase searching guidance:
+  1. Search for related modules and functions by name or functionality
+  2. Look for trait implementations and type definitions
+  3. Understand error handling patterns in existing code
+  4. Examine Tauri command implementations for consistency
+  
+  Error handling:
+  1. If file not found: STOP and notify user
+  2. If module structure unclear: REQUEST clarification
+  3. If architectural violation detected: WARN user
+
+# Task Management
+BACKEND_TASK_WORKFLOW: |
+  Required files:
+  - docs/tasks.md: Source of task definitions
+  - docs/status.md: Progress tracking
+  - docs/technical.md: Implementation guidelines
+  - src-tauri/Cargo.toml: Project configuration
+  
+  Workflow steps:
+  1. READ docs/tasks.md:
+     - Parse current backend task requirements
+     - Extract service and handler requirements
+     - Identify module dependencies
+  
+  2. VALIDATE against docs/architecture.mermaid:
+     - Confirm backend architectural alignment
+     - Check component interactions and dependencies
+  
+  3. UPDATE docs/status.md:
+     - Mark backend task as in-progress
+     - Track completion of services and handlers
+     - Document any blockers or dependencies
+  
+  4. IMPLEMENT following TDD:
+     - Create Rust test modules first
+     - Implement to pass tests
+     - Ensure proper error handling
+     - Update status on module completion
+  
+  For backend tasks:
+  1. Understand the current module structure
+  2. Make targeted edits to implement required functionality
+  3. Run cargo commands to test and validate changes
+  4. Provide clear explanations of module changes
+
+# Backend-Specific Validation
+BACKEND_VALIDATION_RULES: |
+  1. Verify Rust correctness:
+     - Check for proper use of ownership and borrowing
+     - Ensure proper lifetime annotations
+     - Validate trait implementations
+     - Check for proper use of generics
+     - Verify correct use of async/await
+  
+  2. Error handling validation:
+     - Verify proper Result and Option usage
+     - Check for error propagation with ?
+     - Validate custom error types
+     - Ensure proper error serialization for frontend
+     - Check for proper panic prevention
+
+  3. Tauri command validation:
+     - Verify proper use of #[tauri::command] macro
+     - Check for proper serialization/deserialization
+     - Validate permission attributes
+     - Ensure proper async handling
+     - Verify error handling and frontend communication
+
+  4. Protocol implementation validation:
+     - Check for proper byte-level operations
+     - Verify checksums and validation
+     - Validate state machine transitions
+     - Ensure proper timeout handling
+     - Check for protocol compliance with specifications
+
+# ASTM Protocol Implementation
+ASTM_PROTOCOL_GUIDELINES: |
+  1. Physical Layer Implementation:
+     - Create abstractions for serial and TCP/IP communication
+     - Implement proper configuration for both connection types
+     - Use async patterns for non-blocking I/O
+     - Create proper error handling for connection failures
+     - Implement timeout and retry mechanisms
+
+  2. Data Link Layer Implementation:
+     - Create frame construction and parsing logic
+     - Implement checksum calculation and validation
+     - Develop acknowledgment handling (ACK, NAK)
+     - Create transmission control flow (ENQ, EOT)
+     - Implement error recovery mechanisms
+
+  3. Application Layer Implementation:
+     - Create record type parsers and serializers
+     - Implement record validation
+     - Develop record processing workflows
+     - Create proper error handling for malformed records
+     - Implement robust state management for multi-record messages
+
+  4. Protocol Testing:
+     - Create mock devices for testing
+     - Implement protocol simulators
+     - Develop comprehensive test cases for edge cases
+     - Create proper logging for protocol debugging
+     - Implement performance benchmarks
+
+  5. Error Handling and Recovery:
+     - Implement proper timeout handling
+     - Create reconnection strategies
+     - Develop error classification and reporting
+     - Implement proper cleanup after failures
+     - Create recovery procedures for common failure modes
+
+# Systems Thinking for Backend
+BACKEND_SYSTEMS_PRINCIPLES: |
+  1. Get the Beat of the System:
+     - Understand data flow through the backend layers
+     - Observe error propagation patterns
+     - Study communication protocols and state transitions
+     - Consider the relationship between services and handlers
+
+  2. Expose Your Mental Models to the Light of Day:
+     - Document module purpose and responsibilities
+     - Make architectural decisions explicit in code comments
+     - Use type system to codify business rules
+     - Create clear module interfaces and documentation
+
+  3. Honor, Respect, and Distribute Information:
+     - Create proper logging at all levels
+     - Implement clear error messages and contexts
+     - Design informative telemetry and monitoring
+     - Document protocol states and transitions
+
+  4. Use Language with Care and Enrich It with Systems Concepts:
+     - Choose precise module and function names
+     - Use consistent terminology across the backend
+     - Develop clear naming patterns for protocol concepts
+     - Document domain-specific terms
+
+  5. Pay Attention to What Is Important, Not Just What Is Quantifiable:
+     - Focus on reliability and error recovery
+     - Balance performance with code maintainability
+     - Consider future extensibility of protocols
+     - Value clear error reporting over complex optimizations
+
+  6. Make Feedback Policies for Feedback Systems:
+     - Implement proper logging and monitoring
+     - Create clear error reporting mechanisms
+     - Design appropriate retry and backoff strategies
+     - Build observability into all backend components
+
+  7. Go for the Good of the Whole:
+     - Design modules for clear separation of concerns
+     - Create consistent error handling patterns
+     - Consider overall system reliability and fault tolerance
+     - Balance feature richness with simplicity and maintainability
+
+  8. Listen to the Wisdom of the System:
+     - Study existing module patterns before creating new ones
+     - Respect established protocol implementations
+     - Learn from existing error patterns and edge cases
+     - Incorporate monitoring feedback into design
+
+  9. Celebrate Complexity:
+     - Use appropriate abstractions for complex protocol handling
+     - Create visualization tools for complex state machines
+     - Document complex interactions between system components
+     - Break down complex protocols into manageable layers
+
+# Agentic Backend Development Support
+BACKEND_AGENTIC_CAPABILITIES: |
+  1. Code Search and Analysis:
+     - Find related modules and implementations
+     - Identify error handling and propagation patterns
+     - Analyze protocol handling in existing code
+     - Look for Tauri command implementations
+
+  2. Direct Code Modification:
+     - Create or modify Rust modules and functions
+     - Implement proper error types and handling
+     - Add or update tests following project conventions
+     - Implement Tauri commands with proper frontend communication
+
+  3. Command Execution:
+     - Run cargo commands for testing and linting
+     - Execute Tauri development builds
+     - Use Rust analyzer for code quality checks
+     - Run protocol tests and simulations
+
+  4. Protocol Implementation Best Practices:
+     - Create robust state machines for protocol handling
+     - Implement proper timeout and retry mechanisms
+     - Design clear error recovery procedures
+     - Follow established byte-level operation patterns
+     - Create comprehensive logging for debugging

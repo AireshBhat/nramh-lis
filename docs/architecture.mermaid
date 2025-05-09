@@ -1,0 +1,104 @@
+graph TD
+    subgraph "Frontend (React)"
+        UI[User Interface]
+        UIComponents[UI Components]
+        State[State Management]
+        Hooks[Custom Hooks]
+        API_Client[API Client]
+    end
+
+    subgraph "Tauri Application Layer"
+        Commands[Tauri Commands]
+        Events[Event System]
+        IPC[IPC Bridge]
+        Window[Window Management]
+    end
+
+    subgraph "Backend (Rust)"
+        subgraph "Handler Layer"
+            LIS_Handler[LIS Communication Handler]
+            Device_Handler[Device Handler]
+            Data_Handler[Data Handler]
+            User_Handler[User Handler]
+            Config_Handler[Configuration Handler]
+        end
+        
+        subgraph "Service Layer"
+            ASTM_Service[ASTM Protocol Service]
+            Patient_Service[Patient Service]
+            Result_Service[Result Service]
+            Auth_Service[Authentication Service]
+            Report_Service[Reporting Service]
+            Validation_Service[Validation Service]
+        end
+        
+        subgraph "Storage Layer"
+            DB_Adapter[Database Adapter]
+            File_Storage[File Storage]
+            Connection_Pool[Connection Pool]
+            Migration[Migration Manager]
+            Cache[Cache Manager]
+        end
+    end
+
+    subgraph "External Systems"
+        Analyzers[AutoQuant Analyzers]
+        HIS[Hospital Information Systems]
+        LIMS[Other Laboratory Systems]
+    end
+
+    %% Frontend Internal Connections
+    UI --> UIComponents
+    UIComponents --> State
+    UIComponents --> Hooks
+    Hooks --> API_Client
+    State --> API_Client
+
+    %% Tauri Layer Connections
+    API_Client --> IPC
+    IPC --> Commands
+    Commands --> Events
+    Events --> Window
+
+    %% Backend Internal Connections
+    Commands --> LIS_Handler
+    Commands --> Device_Handler
+    Commands --> Data_Handler
+    Commands --> User_Handler
+    Commands --> Config_Handler
+    
+    LIS_Handler --> ASTM_Service
+    Device_Handler --> ASTM_Service
+    Data_Handler --> Patient_Service
+    Data_Handler --> Result_Service
+    User_Handler --> Auth_Service
+    Config_Handler --> Validation_Service
+    
+    Patient_Service --> Report_Service
+    Result_Service --> Report_Service
+    
+    ASTM_Service --> DB_Adapter
+    Patient_Service --> DB_Adapter
+    Result_Service --> DB_Adapter
+    Auth_Service --> DB_Adapter
+    Report_Service --> File_Storage
+    
+    DB_Adapter --> Connection_Pool
+    DB_Adapter --> Migration
+    DB_Adapter --> Cache
+    
+    %% External Connections
+    ASTM_Service <--> Analyzers
+    ASTM_Service <--> HIS
+    ASTM_Service <--> LIMS
+
+    %% Define styles
+    classDef frontend fill:#f9f,stroke:#333,stroke-width:2px;
+    classDef tauri fill:#bbf,stroke:#333,stroke-width:2px;
+    classDef backend fill:#bfb,stroke:#333,stroke-width:2px;
+    classDef external fill:#fbb,stroke:#333,stroke-width:2px;
+    
+    class UI,UIComponents,State,Hooks,API_Client frontend;
+    class Commands,Events,IPC,Window tauri;
+    class LIS_Handler,Device_Handler,Data_Handler,User_Handler,Config_Handler,ASTM_Service,Patient_Service,Result_Service,Auth_Service,Report_Service,Validation_Service,DB_Adapter,File_Storage,Connection_Pool,Migration,Cache backend;
+    class Analyzers,HIS,LIMS external;

@@ -1,4 +1,3 @@
-import React from 'react';
 import { useParams } from 'react-router-dom';
 import Card from '../../components/ui/Card';
 import StatusIndicator from '../../components/ui/StatusIndicator';
@@ -14,7 +13,7 @@ const MachineDetail = () => {
     <div className="space-y-6 p-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Machine Details</h1>
-        <StatusIndicator status="active" />
+        <StatusIndicator status="online" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -61,12 +60,13 @@ const MachineDetail = () => {
           <AlertTriangle className="w-6 h-6 text-blue-600" />
           <h2 className="text-xl font-semibold">Recent Alerts</h2>
         </div>
-        <DataTable 
+        <DataTable<{ date: string; type: string; message: string; status: string }>
+          keyExtractor={(item) => item.date}
           columns={[
-            { header: 'Date', accessor: 'date' },
-            { header: 'Type', accessor: 'type' },
-            { header: 'Message', accessor: 'message' },
-            { header: 'Status', accessor: 'status' }
+            { header: 'Date', key: 'date', cell: (item) => item.date },
+            { header: 'Type', key: 'type', cell: (item) => item.type },
+            { header: 'Message', key: 'message', cell: (item) => item.message },
+            { header: 'Status', key: 'status', cell: (item) => item.status }
           ]}
           data={[
             { 

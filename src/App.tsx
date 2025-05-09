@@ -5,7 +5,7 @@ import LoadingScreen from './components/ui/LoadingScreen';
 import Dashboard from './pages/Dashboard';
 
 // Lazy loaded routes
-const Login = lazy(() => import('./pages/auth/Login'));
+// const Login = lazy(() => import('./pages/auth/Login'));
 const MachineList = lazy(() => import('./pages/machines/MachineList'));
 const MachineDetail = lazy(() => import('./pages/machines/MachineDetail'));
 const MachineAdd = lazy(() => import('./pages/machines/MachineAdd'));
@@ -24,11 +24,11 @@ const TransmissionDashboard = lazy(() => import('./pages/integration/Transmissio
 function App() {
   return (
     <Routes>
-      <Route path="/login" element={
+      {/* <Route path="/login" element={
         <Suspense fallback={<LoadingScreen />}>
           <Login />
         </Suspense>
-      } />
+      } /> */}
       
       <Route path="/" element={<Layout />}>
         <Route index element={<Dashboard />} />

@@ -1,4 +1,3 @@
-import React from 'react';
 import { useParams } from 'react-router-dom';
 import Card from '../../components/ui/Card';
 import { FileText } from 'lucide-react';

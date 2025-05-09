@@ -1,8 +1,7 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../../components/ui/Card';
 import DataTable from '../../components/ui/DataTable';
-import StatusIndicator from '../../components/ui/StatusIndicator';
+import StatusIndicator, { Status } from '../../components/ui/StatusIndicator';
 
 const ResultsDashboard = () => {
   return (
@@ -51,18 +50,18 @@ const ResultsDashboard = () => {
         <div className="px-4 py-5 sm:p-6">
           <h2 className="text-lg font-medium text-gray-900">Recent Results</h2>
           <div className="mt-4">
-            <DataTable
+            <DataTable<{ id: string; patient: string; type: string; status: Status; date: string }>
+              keyExtractor={(value) => value.id}
               columns={[
-                { header: 'Test ID', accessor: 'id' },
-                { header: 'Patient', accessor: 'patient' },
-                { header: 'Test Type', accessor: 'type' },
-                { header: 'Status', accessor: 'status', 
-                  cell: (value) => <StatusIndicator status={value} />
+                { header: 'Test ID', key: 'id', cell: (value) => value.id },
+                { header: 'Patient', key: 'patient', cell: (value) => value.patient },
+                { header: 'Test Type', key: 'type', cell: (value) => value.type },
+                { header: 'Status', key: 'status', 
+                  cell: (value) => <StatusIndicator status={value.status} />
                 },
-                { header: 'Date', accessor: 'date' },
+                { header: 'Date', key: 'date', cell: (value) => value.date },
               ]}
               data={[]}
-              emptyMessage="No recent test results"
             />
           </div>
         </div>
@@ -73,16 +72,16 @@ const ResultsDashboard = () => {
           <div className="px-4 py-5 sm:p-6">
             <h2 className="text-lg font-medium text-gray-900">Tests by Machine</h2>
             <div className="mt-4">
-              <DataTable
+              <DataTable<{ machine: string; testsToday: number; status: Status }>
+                keyExtractor={(value) => value.machine}
                 columns={[
-                  { header: 'Machine', accessor: 'machine' },
-                  { header: 'Tests Today', accessor: 'testsToday' },
-                  { header: 'Status', accessor: 'status',
-                    cell: (value) => <StatusIndicator status={value} />
+                  { header: 'Machine', key: 'machine', cell: (value) => value.machine },
+                  { header: 'Tests Today', key: 'testsToday', cell: (value) => value.testsToday },
+                  { header: 'Status', key: 'status',
+                    cell: (value) => <StatusIndicator status={value.status} />
                   },
                 ]}
                 data={[]}
-                emptyMessage="No machine data available"
               />
             </div>
           </div>
@@ -92,15 +91,15 @@ const ResultsDashboard = () => {
           <div className="px-4 py-5 sm:p-6">
             <h2 className="text-lg font-medium text-gray-900">Pending Orders</h2>
             <div className="mt-4">
-              <DataTable
+              <DataTable<{ id: string; patient: string; priority: string; orderedBy: string }>
+                keyExtractor={(value) => value.id}
                 columns={[
-                  { header: 'Order ID', accessor: 'id' },
-                  { header: 'Patient', accessor: 'patient' },
-                  { header: 'Priority', accessor: 'priority' },
-                  { header: 'Ordered By', accessor: 'orderedBy' },
+                  { header: 'Order ID', key: 'id', cell: (value) => value.id },
+                  { header: 'Patient', key: 'patient', cell: (value) => value.patient },
+                  { header: 'Priority', key: 'priority', cell: (value) => value.priority },
+                  { header: 'Ordered By', key: 'orderedBy', cell: (value) => value.orderedBy },
                 ]}
                 data={[]}
-                emptyMessage="No pending orders"
               />
             </div>
           </div>

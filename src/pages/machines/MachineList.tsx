@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Plus, RefreshCw, AlertTriangle, Wifi, WifiOff } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import DataTable from '../../components/ui/DataTable';
-import StatusIndicator from '../../components/ui/StatusIndicator';
+import StatusIndicator, { Status } from '../../components/ui/StatusIndicator';
 import Badge from '../../components/ui/Badge';
 
 // Sample machine data for demonstration
@@ -68,7 +68,7 @@ const SAMPLE_MACHINES = [
 
 export default function MachineList() {
   const navigate = useNavigate();
-  const [machines, setMachines] = useState(SAMPLE_MACHINES);
+  const [machines] = useState(SAMPLE_MACHINES);
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Simulate refresh action
@@ -123,7 +123,7 @@ export default function MachineList() {
       key: 'status',
       header: 'Status',
       cell: (machine: typeof machines[0]) => (
-        <StatusIndicator status={machine.status as any} />
+        <StatusIndicator status={machine.status as Status} />
       ),
     },
     {

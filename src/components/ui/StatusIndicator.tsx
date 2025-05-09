@@ -1,7 +1,8 @@
 import { cn } from '../../utils/cn';
 
+export type Status = 'online' | 'offline' | 'warning' | 'processing' | 'error' | 'success';
 interface StatusIndicatorProps {
-  status: 'online' | 'offline' | 'warning' | 'processing' | 'error' | 'success';
+  status: Status;
   label?: string;
   size?: 'sm' | 'md' | 'lg';
 }

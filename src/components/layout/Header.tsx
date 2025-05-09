@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Menu, Bell, Search, MenuIcon } from 'lucide-react';
+import { Bell, Search, MenuIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface HeaderProps {
@@ -29,9 +29,9 @@ export default function Header({ onMenuButtonClick }: HeaderProps) {
   };
   
   return (
-    <header className="bg-white shadow-sm z-10">
+    <header className="bg-white shadow-sm z-10 ml:0 md:ml-64">
       <div className="mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 justify-between">
+        <div className="flex items-center justify-between h-16 px-4 bg-white shadow">
           <div className="flex">
             <button
               type="button"
@@ -109,18 +109,6 @@ export default function Header({ onMenuButtonClick }: HeaderProps) {
                 )}
               </AnimatePresence>
             </div>
-            
-            {/* Profile dropdown */}
-            <Menu as="div" className="relative ml-4">
-              <div>
-                <Menu.Button className="relative flex rounded-full bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
-                  <span className="sr-only">Open user menu</span>
-                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary-600 text-white">
-                    <span className="text-sm font-medium leading-none">LT</span>
-                  </span>
-                </Menu.Button>
-              </div>
-            </Menu>
           </div>
         </div>
       </div>

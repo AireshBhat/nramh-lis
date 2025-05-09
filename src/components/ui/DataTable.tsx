@@ -51,11 +51,11 @@ export default function DataTable<T>({
   };
 
   // Sorting function
-  const sortedData = [...data].sort((a: any, b: any) => {
+  const sortedData = [...data].sort((a: T, b: T) => {
     if (!sortColumn) return 0;
     
-    const aValue = a[sortColumn];
-    const bValue = b[sortColumn];
+    const aValue = a[sortColumn as keyof T];
+    const bValue = b[sortColumn as keyof T];
     
     if (typeof aValue === 'string' && typeof bValue === 'string') {
       return sortDirection === 'asc' 

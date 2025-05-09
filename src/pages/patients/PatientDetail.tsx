@@ -1,7 +1,6 @@
-import React from 'react';
 import { useParams } from 'react-router-dom';
 import Card from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
+import Badge from '../../components/ui/Badge';
 import StatusIndicator from '../../components/ui/StatusIndicator';
 
 function PatientDetail() {
@@ -23,7 +22,7 @@ function PatientDetail() {
           <div>
             <h3 className="text-sm font-medium text-gray-500">Status</h3>
             <div className="mt-1">
-              <StatusIndicator status="active" />
+              <StatusIndicator status="success" />
             </div>
           </div>
         </div>

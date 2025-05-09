@@ -1,4 +1,3 @@
-import React from 'react';
 import { useParams } from 'react-router-dom';
 import Card from '../../components/ui/Card';
 import StatusIndicator from '../../components/ui/StatusIndicator';
@@ -10,7 +9,7 @@ const TestResultDetail = () => {
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Test Result Details</h1>
-        <StatusIndicator status="completed" />
+        <StatusIndicator status="success" />
       </div>
 
       <Card>

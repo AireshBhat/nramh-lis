@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -13,11 +12,11 @@ import {
   Legend,
   Filler,
 } from 'chart.js';
-import { Activity, AlertCircle, CheckCircle2, ClipboardCheck, Clock, ExternalLink, FlaskRound as Flask, Server, Users } from 'lucide-react';
+import { Activity, AlertCircle, CheckCircle2, ClipboardCheck, Clock, ExternalLink, FlaskRound as Flask } from 'lucide-react';
 
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import StatusIndicator from '../components/ui/StatusIndicator';
+import StatusIndicator, { Status } from '../components/ui/StatusIndicator';
 
 // Register ChartJS components
 ChartJS.register(
@@ -141,12 +140,14 @@ export default function Dashboard() {
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Test Volume Chart */}
-        <Card title="Test Volume (Last 7 Days)" className="h-80">
-          <Line data={testVolumeData} options={chartOptions} height={200} />
+        <Card title="Test Volume (Last 7 Days)" className="h-100">
+          <div className="h-full flex items-center justify-center">
+            <Line data={testVolumeData} options={chartOptions} height={200} />
+          </div>
         </Card>
         
         {/* Test Distribution by Type */}
-        <Card title="Test Distribution by Type" className="h-80">
+        <Card title="Test Distribution by Type" className="h-100">
           <div className="h-full flex items-center justify-center">
             <div className="h-64 w-64">
               <Doughnut data={testTypeData} />
@@ -170,7 +171,7 @@ export default function Dashboard() {
             {systemStatus.map((system, index) => (
               <div key={index} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
                 <span className="text-sm font-medium text-gray-800">{system.name}</span>
-                <StatusIndicator status={system.status as any} />
+                <StatusIndicator status={system.status as Status} />
               </div>
             ))}
           </div>

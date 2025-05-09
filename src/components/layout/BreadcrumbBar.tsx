@@ -43,7 +43,7 @@ export default function BreadcrumbBar() {
   };
 
   return (
-    <nav className="bg-white border-b border-gray-200 px-4 py-2.5 text-sm text-gray-600" aria-label="Breadcrumb">
+    <nav className="bg-white border-b border-gray-200 px-4 py-2.5 text-sm text-gray-600 ml:0 md:ml-64" aria-label="Breadcrumb">
       <ol className="flex items-center space-x-1">
         <li className="flex items-center">
           <Link to="/" className="hover:text-primary-600 flex items-center">

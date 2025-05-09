@@ -1,9 +1,8 @@
-import React from 'react';
-import Card from '../../components/ui/Card';
-import DataTable from '../../components/ui/DataTable';
-import { Button } from '../../components/ui/Button';
+// import Card from '../../components/ui/Card';
+// import DataTable from '../../components/ui/DataTable';
+import Button from '../../components/ui/Button';
 import { Link } from 'react-router-dom';
-import { UserRound, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 
 function PatientList() {
   return (
@@ -18,17 +17,17 @@ function PatientList() {
         </Link>
       </div>
 
-      <Card>
+      {/* <Card>
         <DataTable 
           columns={[
-            { header: 'ID', accessorKey: 'id' },
-            { header: 'Name', accessorKey: 'name' },
-            { header: 'DOB', accessorKey: 'dateOfBirth' },
-            { header: 'Status', accessorKey: 'status' }
+            { header: 'ID', key: 'id', cell: (item) => item.id },
+            { header: 'Name', key: 'name', cell: (item) => item.name },
+            { header: 'DOB', key: 'dateOfBirth', cell: (item) => item.dateOfBirth },
+            { header: 'Status', key: 'status', cell: (item) => item.status }
           ]}
           data={[]} // Will be populated with real data later
         />
-      </Card>
+      </Card> */}
     </div>
   );
 }
