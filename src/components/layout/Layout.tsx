@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
-import Header from './Header';
 import BreadcrumbBar from './BreadcrumbBar';
 
 export default function Layout() {
@@ -17,10 +16,6 @@ export default function Layout() {
       
       {/* Main content area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header 
-          onMenuButtonClick={() => setSidebarOpen(true)} 
-        />
-        
         <BreadcrumbBar />
         
         {/* Main content with scrolling */}

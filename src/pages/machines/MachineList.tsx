@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, RefreshCw, AlertTriangle, Wifi, WifiOff } from 'lucide-react';
+import { Plus, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import DataTable from '../../components/ui/DataTable';
@@ -11,59 +11,59 @@ import Badge from '../../components/ui/Badge';
 const SAMPLE_MACHINES = [
   { 
     id: 'AQ-101', 
-    name: 'AutoQuant Chemistry A1', 
+    name: 'AutoQuant Chemistry', 
     type: 'Chemistry', 
     model: 'AutoQuant 3000',
-    connection: 'COM1:9600',
+    connection: 'TCP/IP',
     protocol: 'ASTM',
     status: 'online',
     lastCommunication: new Date(2023, 5, 15, 10, 30).toISOString(),
     pendingTests: 3,
   },
-  { 
-    id: 'AQ-102', 
-    name: 'AutoQuant Chemistry A2', 
-    type: 'Chemistry', 
-    model: 'AutoQuant 3000',
-    connection: 'COM2:9600',
-    protocol: 'ASTM',
-    status: 'offline',
-    lastCommunication: new Date(2023, 5, 14, 18, 15).toISOString(),
-    pendingTests: 0,
-  },
-  { 
-    id: 'AQ-103', 
-    name: 'Hematology Analyzer H1', 
-    type: 'Hematology', 
-    model: 'HemaCount Pro',
-    connection: '192.168.1.101:3000',
-    protocol: 'HL7',
-    status: 'warning',
-    lastCommunication: new Date(2023, 5, 15, 9, 45).toISOString(),
-    pendingTests: 7,
-  },
-  { 
-    id: 'AQ-104', 
-    name: 'Urinalysis System U1', 
-    type: 'Urinalysis', 
-    model: 'UriScan Elite',
-    connection: 'COM3:9600',
-    protocol: 'ASTM',
-    status: 'online',
-    lastCommunication: new Date(2023, 5, 15, 10, 15).toISOString(),
-    pendingTests: 2,
-  },
-  { 
-    id: 'AQ-105', 
-    name: 'Immunology Analyzer I1', 
-    type: 'Immunology', 
-    model: 'ImmunoQuant 2500',
-    connection: '192.168.1.102:3000',
-    protocol: 'HL7',
-    status: 'online',
-    lastCommunication: new Date(2023, 5, 15, 10, 22).toISOString(),
-    pendingTests: 5,
-  },
+  // { 
+  //   id: 'AQ-102', 
+  //   name: 'AutoQuant Chemistry A2', 
+  //   type: 'Chemistry', 
+  //   model: 'AutoQuant 3000',
+  //   connection: 'COM2:9600',
+  //   protocol: 'ASTM',
+  //   status: 'offline',
+  //   lastCommunication: new Date(2023, 5, 14, 18, 15).toISOString(),
+  //   pendingTests: 0,
+  // },
+  // { 
+  //   id: 'AQ-103', 
+  //   name: 'Hematology Analyzer H1', 
+  //   type: 'Hematology', 
+  //   model: 'HemaCount Pro',
+  //   connection: '192.168.1.101:3000',
+  //   protocol: 'HL7',
+  //   status: 'warning',
+  //   lastCommunication: new Date(2023, 5, 15, 9, 45).toISOString(),
+  //   pendingTests: 7,
+  // },
+  // { 
+  //   id: 'AQ-104', 
+  //   name: 'Urinalysis System U1', 
+  //   type: 'Urinalysis', 
+  //   model: 'UriScan Elite',
+  //   connection: 'COM3:9600',
+  //   protocol: 'ASTM',
+  //   status: 'online',
+  //   lastCommunication: new Date(2023, 5, 15, 10, 15).toISOString(),
+  //   pendingTests: 2,
+  // },
+  // { 
+  //   id: 'AQ-105', 
+  //   name: 'Immunology Analyzer I1', 
+  //   type: 'Immunology', 
+  //   model: 'ImmunoQuant 2500',
+  //   connection: '192.168.1.102:3000',
+  //   protocol: 'HL7',
+  //   status: 'online',
+  //   lastCommunication: new Date(2023, 5, 15, 10, 22).toISOString(),
+  //   pendingTests: 5,
+  // },
 ];
 
 export default function MachineList() {
@@ -183,7 +183,7 @@ export default function MachineList() {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-medium text-primary-900">Online Machines</h3>
-              <p className="text-3xl font-semibold text-primary-700">3</p>
+              <p className="text-3xl font-semibold text-primary-700">1</p>
             </div>
             <Wifi className="h-10 w-10 text-primary-400" />
           </div>
@@ -193,13 +193,13 @@ export default function MachineList() {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-medium text-error-900">Offline Machines</h3>
-              <p className="text-3xl font-semibold text-error-700">1</p>
+              <p className="text-3xl font-semibold text-error-700">0</p>
             </div>
             <WifiOff className="h-10 w-10 text-error-400" />
           </div>
         </Card>
         
-        <Card className="bg-gradient-to-r from-warning-50 to-white border border-warning-100">
+        {/* <Card className="bg-gradient-to-r from-warning-50 to-white border border-warning-100">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-medium text-warning-900">Machines with Warnings</h3>
@@ -207,7 +207,7 @@ export default function MachineList() {
             </div>
             <AlertTriangle className="h-10 w-10 text-warning-400" />
           </div>
-        </Card>
+        </Card> */}
       </div>
       
       <Card>
