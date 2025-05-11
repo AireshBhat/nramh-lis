@@ -1,11 +1,10 @@
 use crate::model::result::{
     ReferenceRange, ResultFlags, ResultStatus, TestResult, TestResultMetadata,
 };
-use crate::protocol::application::record::{Record, RecordType};
+use crate::protocol::application::record::Record;
 use crate::storage::repository::SqliteRepository;
-use anyhow::{anyhow, Result};
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use anyhow::Result;
+use chrono::Utc;
 use std::sync::Arc;
 
 /// Service for handling test results
@@ -70,6 +69,7 @@ impl ResultService {
                 sequence_number: 1,
                 instrument: Some("AutoQuant".to_string()),
             },
+            analyzer_id: None,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         });
@@ -107,6 +107,7 @@ impl ResultService {
                 sequence_number: 1,
                 instrument: Some("AutoQuant".to_string()),
             },
+            analyzer_id: None,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         }];

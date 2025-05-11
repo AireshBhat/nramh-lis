@@ -30,6 +30,16 @@ impl From<&str> for ResultStatus {
     }
 }
 
+impl ToString for ResultStatus {
+    fn to_string(&self) -> String {
+        match self {
+            ResultStatus::Correction => "C".to_string(),
+            ResultStatus::Final => "F".to_string(),
+            ResultStatus::Preliminary => "P".to_string(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TestResultMetadata {
     pub sequence_number: u32,
@@ -48,6 +58,7 @@ pub struct TestResult {
     pub status: ResultStatus,  // Result status
     pub completed_date_time: Option<DateTime<Utc>>, // When test was completed
     pub metadata: TestResultMetadata, // Additional metadata
+    pub analyzer_id: Option<String>, // Reference to the analyzer that produced this result
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

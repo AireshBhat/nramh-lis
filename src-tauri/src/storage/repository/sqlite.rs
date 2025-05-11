@@ -1,13 +1,16 @@
+use crate::model::analyzer::{Analyzer, AnalyzerStatus, ConnectionType};
 use crate::model::patient::Patient;
 use crate::model::result::{
     ReferenceRange, ResultFlags, ResultStatus, TestResult, TestResultMetadata,
 };
+use crate::model::upload::{ResultUploadStatus, UploadStatus};
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use sqlx::{
-    sqlite::{SqliteConnectOptions, SqlitePool},
+    sqlite::SqlitePool,
     Row,
 };
+use uuid::Uuid;
 
 use super::db;
 
@@ -208,11 +211,7 @@ impl SqliteRepository {
         let now = Utc::now().to_rfc3339();
 
         // Status conversion
-        let status_str = match result.status {
-            ResultStatus::Correction => "C",
-            ResultStatus::Final => "F",
-            ResultStatus::Preliminary => "P",
-        };
+        let status_str = result.status.to_string();
 
         // Extract reference range values if available
         let (lower_range, upper_range) = match &result.reference_range {
@@ -235,7 +234,7 @@ impl SqliteRepository {
                 result_id, test_id, patient_id, sample_id, value, units,
                 reference_range_lower, reference_range_upper, abnormal_flag,
                 nature_of_abnormality, status, completed_date_time,
-                sequence_number, instrument, is_uploaded, created_at, updated_at
+                sequence_number, instrument, analyzer_id, created_at, updated_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(&result.id)
@@ -251,7 +250,7 @@ impl SqliteRepository {
         .bind(result.completed_date_time.map(|d| d.to_rfc3339()))
         .bind(result.metadata.sequence_number)
         .bind(&result.metadata.instrument)
-        .bind(false) // is_uploaded
+        .bind(&result.analyzer_id)
         .bind(&now)
         .bind(&now)
         .execute(&self.pool)
@@ -344,6 +343,7 @@ impl SqliteRepository {
                     sequence_number: row.get::<i32, _>("sequence_number") as u32,
                     instrument: row.get("instrument"),
                 },
+                analyzer_id: row.get("analyzer_id"),
                 created_at,
                 updated_at,
             });
@@ -352,58 +352,91 @@ impl SqliteRepository {
         Ok(results)
     }
 
-    /// Mark test results as uploaded
-    pub async fn mark_results_as_uploaded(&self, result_ids: &[String]) -> Result<u64> {
+    /// Save an analyzer to the database
+    pub async fn save_analyzer(&self, analyzer: &Analyzer) -> Result<i64> {
         let now = Utc::now().to_rfc3339();
 
-        // Building dynamic query for multiple result IDs
-        let placeholders = (0..result_ids.len())
-            .map(|_| "?")
-            .collect::<Vec<_>>()
-            .join(",");
+        // Check if analyzer exists
+        let existing = sqlx::query("SELECT id FROM analyzers WHERE analyzer_id = ?")
+            .bind(&analyzer.id)
+            .fetch_optional(&self.pool)
+            .await?;
 
-        let query = format!(
-            "UPDATE test_results SET is_uploaded = true, updated_at = ? WHERE result_id IN ({})",
-            placeholders
-        );
+        if let Some(row) = existing {
+            // Update existing analyzer
+            let id: i64 = row.get("id");
 
-        // Start building the query
-        let mut query_builder = sqlx::query(&query).bind(&now);
+            sqlx::query(
+                "UPDATE analyzers SET 
+                name = ?, 
+                model = ?, 
+                serial_number = ?,
+                manufacturer = ?,
+                connection_type = ?,
+                ip_address = ?,
+                port = ?,
+                com_port = ?,
+                baud_rate = ?,
+                status = ?,
+                updated_at = ?
+                WHERE analyzer_id = ?",
+            )
+            .bind(&analyzer.name)
+            .bind(&analyzer.model)
+            .bind(&analyzer.serial_number)
+            .bind(&analyzer.manufacturer)
+            .bind(&analyzer.connection_type.to_string())
+            .bind(&analyzer.ip_address)
+            .bind(analyzer.port)
+            .bind(&analyzer.com_port)
+            .bind(analyzer.baud_rate)
+            .bind(&analyzer.status.to_string())
+            .bind(&now)
+            .bind(&analyzer.id)
+            .execute(&self.pool)
+            .await?;
 
-        // Add each result ID as a parameter
-        for id in result_ids {
-            query_builder = query_builder.bind(id);
+            Ok(id)
+        } else {
+            // Insert new analyzer
+            let id = sqlx::query(
+                "INSERT INTO analyzers (
+                    analyzer_id, name, model, serial_number, manufacturer, 
+                    connection_type, ip_address, port, com_port, baud_rate,
+                    status, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            )
+            .bind(&analyzer.id)
+            .bind(&analyzer.name)
+            .bind(&analyzer.model)
+            .bind(&analyzer.serial_number)
+            .bind(&analyzer.manufacturer)
+            .bind(&analyzer.connection_type.to_string())
+            .bind(&analyzer.ip_address)
+            .bind(analyzer.port)
+            .bind(&analyzer.com_port)
+            .bind(analyzer.baud_rate)
+            .bind(&analyzer.status.to_string())
+            .bind(&now)
+            .bind(&now)
+            .execute(&self.pool)
+            .await?
+            .last_insert_rowid();
+
+            Ok(id)
         }
-
-        // Execute and get affected rows
-        let result = query_builder.execute(&self.pool).await?;
-
-        Ok(result.rows_affected())
     }
 
-    /// Get pending results that need to be uploaded
-    pub async fn get_pending_uploads(&self, limit: u32) -> Result<Vec<TestResult>> {
-        let rows = sqlx::query(
-            "SELECT tr.*, p.patient_id as pid 
-             FROM test_results tr
-             JOIN patients p ON tr.patient_id = p.patient_id  
-             WHERE tr.is_uploaded = false 
-             ORDER BY tr.created_at ASC 
-             LIMIT ?",
-        )
-        .bind(limit)
-        .fetch_all(&self.pool)
-        .await?;
+    /// Get all analyzers
+    pub async fn get_analyzers(&self) -> Result<Vec<Analyzer>> {
+        let rows = sqlx::query("SELECT * FROM analyzers ORDER BY name")
+            .fetch_all(&self.pool)
+            .await?;
 
-        let mut results = Vec::new();
+        let mut analyzers = Vec::new();
 
         for row in rows {
             // Parse dates
-            let completed_date_time = row
-                .get::<Option<String>, _>("completed_date_time")
-                .map(|s| s.parse::<DateTime<Utc>>().ok())
-                .flatten();
-
             let created_at = row
                 .get::<String, _>("created_at")
                 .parse::<DateTime<Utc>>()
@@ -414,62 +447,291 @@ impl SqliteRepository {
                 .parse::<DateTime<Utc>>()
                 .map_err(|e| anyhow!("Failed to parse updated_at: {}", e))?;
 
+            // Parse connection_type
+            let connection_type = ConnectionType::from(row.get::<String, _>("connection_type").as_str());
+
             // Parse status
-            let status = match row.get::<String, _>("status").as_str() {
-                "C" => ResultStatus::Correction,
-                "P" => ResultStatus::Preliminary,
-                _ => ResultStatus::Final,
-            };
-
-            // Create reference range if values exist
-            let reference_range = {
-                let lower: Option<f64> = row.get("reference_range_lower");
-                let upper: Option<f64> = row.get("reference_range_upper");
-
-                if lower.is_some() || upper.is_some() {
-                    Some(ReferenceRange {
-                        lower_limit: lower,
-                        upper_limit: upper,
-                    })
-                } else {
-                    None
-                }
-            };
-
-            // Create flags if values exist
-            let flags = {
-                let abnormal: Option<String> = row.get("abnormal_flag");
-                let nature: Option<String> = row.get("nature_of_abnormality");
-
-                if abnormal.is_some() || nature.is_some() {
-                    Some(ResultFlags {
-                        abnormal_flag: abnormal,
-                        nature_of_abnormality: nature,
-                    })
-                } else {
-                    None
-                }
-            };
-
-            results.push(TestResult {
-                id: row.get("result_id"),
-                test_id: row.get("test_id"),
-                sample_id: row.get("sample_id"),
-                value: row.get("value"),
-                units: row.get("units"),
-                reference_range,
-                flags,
+            let status = AnalyzerStatus::from(row.get::<String, _>("status").as_str());
+            
+            analyzers.push(Analyzer {
+                id: row.get("analyzer_id"),
+                name: row.get("name"),
+                model: row.get("model"),
+                serial_number: row.get("serial_number"),
+                manufacturer: row.get("manufacturer"),
+                connection_type,
+                ip_address: row.get("ip_address"),
+                port: row.get::<Option<i32>, _>("port").map(|p| p as u16),
+                com_port: row.get("com_port"),
+                baud_rate: row.get::<Option<i32>, _>("baud_rate").map(|b| b as u32),
                 status,
-                completed_date_time,
-                metadata: TestResultMetadata {
-                    sequence_number: row.get::<i32, _>("sequence_number") as u32,
-                    instrument: row.get("instrument"),
-                },
                 created_at,
                 updated_at,
             });
         }
 
-        Ok(results)
+        Ok(analyzers)
+    }
+
+    /// Get an analyzer by ID
+    pub async fn get_analyzer(&self, analyzer_id: &str) -> Result<Option<Analyzer>> {
+        let row = sqlx::query("SELECT * FROM analyzers WHERE analyzer_id = ?")
+            .bind(analyzer_id)
+            .fetch_optional(&self.pool)
+            .await?;
+
+        if let Some(row) = row {
+            // Parse dates
+            let created_at = row
+                .get::<String, _>("created_at")
+                .parse::<DateTime<Utc>>()
+                .map_err(|e| anyhow!("Failed to parse created_at: {}", e))?;
+
+            let updated_at = row
+                .get::<String, _>("updated_at")
+                .parse::<DateTime<Utc>>()
+                .map_err(|e| anyhow!("Failed to parse updated_at: {}", e))?;
+
+            // Parse connection_type
+            let connection_type = ConnectionType::from(row.get::<String, _>("connection_type").as_str());
+
+            // Parse status
+            let status = AnalyzerStatus::from(row.get::<String, _>("status").as_str());
+            
+            Ok(Some(Analyzer {
+                id: row.get("analyzer_id"),
+                name: row.get("name"),
+                model: row.get("model"),
+                serial_number: row.get("serial_number"),
+                manufacturer: row.get("manufacturer"),
+                connection_type,
+                ip_address: row.get("ip_address"),
+                port: row.get::<Option<i32>, _>("port").map(|p| p as u16),
+                com_port: row.get("com_port"),
+                baud_rate: row.get::<Option<i32>, _>("baud_rate").map(|b| b as u32),
+                status,
+                created_at,
+                updated_at,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Delete an analyzer
+    pub async fn delete_analyzer(&self, analyzer_id: &str) -> Result<bool> {
+        let result = sqlx::query("DELETE FROM analyzers WHERE analyzer_id = ?")
+            .bind(analyzer_id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    /// Track result upload
+    pub async fn track_result_upload(
+        &self,
+        result_id: &str,
+        external_system_id: &str,
+    ) -> Result<i64> {
+        let now = Utc::now().to_rfc3339();
+        let upload_id = Uuid::new_v4().to_string();
+
+        let id = sqlx::query(
+            "INSERT INTO result_upload_status (
+                upload_id, result_id, external_system_id, upload_status,
+                retry_count, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(&upload_id)
+        .bind(result_id)
+        .bind(external_system_id)
+        .bind("PENDING")
+        .bind(0)
+        .bind(&now)
+        .bind(&now)
+        .execute(&self.pool)
+        .await?
+        .last_insert_rowid();
+
+        Ok(id)
+    }
+
+    /// Update result upload status
+    pub async fn update_upload_status(
+        &self,
+        upload_id: &str,
+        status: UploadStatus,
+        response_code: Option<&str>,
+        response_message: Option<&str>,
+    ) -> Result<bool> {
+        let now = Utc::now().to_rfc3339();
+        let upload_date = if matches!(status, UploadStatus::Uploaded) {
+            Some(now.clone())
+        } else {
+            None
+        };
+
+        let query = match status {
+            UploadStatus::Uploaded => {
+                "UPDATE result_upload_status SET 
+                upload_status = ?, 
+                upload_date = ?,
+                response_code = ?,
+                response_message = ?,
+                updated_at = ?
+                WHERE upload_id = ?"
+            }
+            UploadStatus::Failed => {
+                "UPDATE result_upload_status SET 
+                upload_status = ?, 
+                response_code = ?,
+                response_message = ?,
+                retry_count = retry_count + 1,
+                updated_at = ?
+                WHERE upload_id = ?"
+            }
+            _ => {
+                "UPDATE result_upload_status SET 
+                upload_status = ?, 
+                updated_at = ?
+                WHERE upload_id = ?"
+            }
+        };
+
+        let result = match status {
+            UploadStatus::Uploaded => {
+                sqlx::query(query)
+                    .bind(status.to_string())
+                    .bind(upload_date)
+                    .bind(response_code)
+                    .bind(response_message)
+                    .bind(&now)
+                    .bind(upload_id)
+                    .execute(&self.pool)
+                    .await?
+            }
+            UploadStatus::Failed => {
+                sqlx::query(query)
+                    .bind(status.to_string())
+                    .bind(response_code)
+                    .bind(response_message)
+                    .bind(&now)
+                    .bind(upload_id)
+                    .execute(&self.pool)
+                    .await?
+            }
+            _ => {
+                sqlx::query(query)
+                    .bind(status.to_string())
+                    .bind(&now)
+                    .bind(upload_id)
+                    .execute(&self.pool)
+                    .await?
+            }
+        };
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    /// Get pending result uploads
+    pub async fn get_pending_uploads(&self, limit: u32) -> Result<Vec<ResultUploadStatus>> {
+        let rows = sqlx::query(
+            "SELECT * FROM result_upload_status 
+             WHERE upload_status = 'PENDING' 
+             ORDER BY created_at ASC 
+             LIMIT ?",
+        )
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut uploads = Vec::new();
+
+        for row in rows {
+            // Parse dates
+            let created_at = row
+                .get::<String, _>("created_at")
+                .parse::<DateTime<Utc>>()
+                .map_err(|e| anyhow!("Failed to parse created_at: {}", e))?;
+
+            let updated_at = row
+                .get::<String, _>("updated_at")
+                .parse::<DateTime<Utc>>()
+                .map_err(|e| anyhow!("Failed to parse updated_at: {}", e))?;
+
+            let upload_date = row
+                .get::<Option<String>, _>("upload_date")
+                .map(|s| s.parse::<DateTime<Utc>>().ok())
+                .flatten();
+
+            // Parse status
+            let status = UploadStatus::from(row.get::<String, _>("upload_status").as_str());
+
+            uploads.push(ResultUploadStatus {
+                id: row.get("upload_id"),
+                result_id: row.get("result_id"),
+                external_system_id: row.get("external_system_id"),
+                status,
+                upload_date,
+                response_code: row.get("response_code"),
+                response_message: row.get("response_message"),
+                retry_count: row.get::<i32, _>("retry_count") as u32,
+                created_at,
+                updated_at,
+            });
+        }
+
+        Ok(uploads)
+    }
+
+    /// Get upload status for a result
+    pub async fn get_result_upload_status(&self, result_id: &str) -> Result<Vec<ResultUploadStatus>> {
+        let rows = sqlx::query(
+            "SELECT * FROM result_upload_status 
+             WHERE result_id = ? 
+             ORDER BY created_at DESC",
+        )
+        .bind(result_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut uploads = Vec::new();
+
+        for row in rows {
+            // Parse dates
+            let created_at = row
+                .get::<String, _>("created_at")
+                .parse::<DateTime<Utc>>()
+                .map_err(|e| anyhow!("Failed to parse created_at: {}", e))?;
+
+            let updated_at = row
+                .get::<String, _>("updated_at")
+                .parse::<DateTime<Utc>>()
+                .map_err(|e| anyhow!("Failed to parse updated_at: {}", e))?;
+
+            let upload_date = row
+                .get::<Option<String>, _>("upload_date")
+                .map(|s| s.parse::<DateTime<Utc>>().ok())
+                .flatten();
+
+            // Parse status
+            let status = UploadStatus::from(row.get::<String, _>("upload_status").as_str());
+
+            uploads.push(ResultUploadStatus {
+                id: row.get("upload_id"),
+                result_id: row.get("result_id"),
+                external_system_id: row.get("external_system_id"),
+                status,
+                upload_date,
+                response_code: row.get("response_code"),
+                response_message: row.get("response_message"),
+                retry_count: row.get::<i32, _>("retry_count") as u32,
+                created_at,
+                updated_at,
+            });
+        }
+
+        Ok(uploads)
     }
 }
