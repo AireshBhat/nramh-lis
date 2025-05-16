@@ -1,8 +1,12 @@
 // Service layer implementations
 
-pub mod astm;
-pub mod result;
+pub mod machine;
+pub mod patient_service;
+pub mod result_service;
+// pub mod test_order_service;
 
-// Re-exports
-pub use astm::AstmService;
-pub use result::ResultService;
+// Re-export services for easier imports
+pub use patient_service::PatientService;
+pub use result_service::ResultService;
+// pub use test_order_service::TestOrderService;
+pub use machine::MerilMachineService;

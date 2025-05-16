@@ -1,6 +1,6 @@
 // Handler layer implementations
 
-pub mod lis_handler;
+pub mod meril_handler;
 
-// Re-exports
-pub use lis_handler::LisHandler;
+// Re-export handler types for easier imports
+pub use meril_handler::MerilHandler;

@@ -67,4 +67,4 @@ pub struct Analyzer {
     pub status: AnalyzerStatus,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-} 
+}

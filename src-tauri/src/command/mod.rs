@@ -1,6 +1,6 @@
 // Tauri command handlers
 
-pub mod lis_command;
+pub mod meril_commands;
 
 // Re-exports
-pub use lis_command::*;
+pub use meril_commands::*;

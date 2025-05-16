@@ -10,14 +10,13 @@ SYSTEM_CONTEXT: |
   Required file reads on startup:
   - docs/architecture.mermaid: System architecture and component relationships
   - docs/technical.md: Technical specifications and patterns
-  - docs/tasks.md: Current development tasks and requirements
   - docs/status.md: Project progress and state
   - src-tauri/Cargo.toml: Backend dependencies and metadata
   - src-tauri/tauri.conf.json: Tauri configuration
   
   Before making any changes to Rust backend code:
   1. Parse and understand system architecture from docs/architecture.mermaid
-  2. Check current task context from docs/tasks.md
+  2. Check current status context from docs/status.md
   3. Review technical specifications from docs/technical.md
   4. Verify crate organization and dependencies in src-tauri/Cargo.toml
   5. Understand Tauri command structure and permissions in tauri.conf.json
@@ -38,7 +37,6 @@ ON_FILE_CHANGE: |
      - Any new issues encountered
      - Completed items
   3. VALIDATE changes against docs/technical.md specifications
-  4. VERIFY task progress against docs/tasks.md
   5. RUN cargo clippy in the src-tauri directory to ensure code quality
   6. RUN cargo fmt in the src-tauri directory to maintain consistent formatting
   
@@ -134,27 +132,26 @@ READ_ARCHITECTURE: |
 # Task Management
 BACKEND_TASK_WORKFLOW: |
   Required files:
-  - docs/tasks.md: Source of task definitions
   - docs/status.md: Progress tracking
   - docs/technical.md: Implementation guidelines
   - src-tauri/Cargo.toml: Project configuration
   
   Workflow steps:
-  1. READ docs/tasks.md:
-     - Parse current backend task requirements
-     - Extract service and handler requirements
-     - Identify module dependencies
-  
-  2. VALIDATE against docs/architecture.mermaid:
+  1. READ docs/status.md:
+     - Read current status
+     - Read current task requirements
+
+  3. VALIDATE against docs/architecture.mermaid:
      - Confirm backend architectural alignment
      - Check component interactions and dependencies
   
-  3. UPDATE docs/status.md:
+  4. UPDATE docs/status.md:
      - Mark backend task as in-progress
-     - Track completion of services and handlers
+     - Track completion of application
      - Document any blockers or dependencies
+     - Create comprehensive task breakdown of next task and update In Progress section
   
-  4. IMPLEMENT following TDD:
+  5. IMPLEMENT following TDD:
      - Create Rust test modules first
      - Implement to pass tests
      - Ensure proper error handling

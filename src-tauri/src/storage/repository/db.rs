@@ -9,6 +9,7 @@ static INIT: Once = Once::new();
 /// Initialize database directories
 pub fn init() {
     INIT.call_once(|| {
+        dotenv::dotenv().ok();
         let data_dir = get_data_dir().expect("Failed to get data directory");
         let db_dir = Path::new(&data_dir).parent().unwrap();
 
@@ -22,9 +23,10 @@ pub fn init() {
 
 /// Get the data directory for the application
 pub fn get_data_dir() -> Result<PathBuf> {
-    let home_dir = dirs::home_dir().ok_or_else(|| anyhow!("Failed to get home directory"))?;
+    init();
+    let home_dir = dirs::data_dir().ok_or_else(|| anyhow!("Failed to get data directory"))?;
     let db_slug = std::env::var("DB_SLUG").unwrap_or_else(|_| "database.db".to_string());
-    Ok(home_dir.join(".nramh-lis").join("data").join(db_slug))
+    Ok(home_dir.join("data").join(db_slug))
 }
 
 /// Establish a connection to the SQLite database
@@ -33,9 +35,8 @@ pub async fn establish_connection() -> Result<SqlitePool> {
 
     // Convert to string representation for SQLx
     let db_url = format!("sqlite:{}", data_dir.display());
-    
-    // Print the database URL
-    tracing::info!("Database URL: {}", db_url);
+
+    log::info!("Database URL: {}", db_url);
 
     // Create the database connection pool
     let pool = SqlitePool::connect(&db_url).await?;

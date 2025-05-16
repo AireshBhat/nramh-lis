@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-This document outlines the technical specifications for a Laboratory Interfacing Software (LIS) system designed to facilitate communication between laboratory analyzers (specifically AutoQuant series) and hospital information systems using the ASTM protocol. The system features a modern desktop application architecture with a clear separation of concerns and robust communication capabilities.
+This document outlines the technical specifications for a Laboratory Interfacing Software (LIS) system designed to facilitate communication between laboratory analyzers (specifically the Meril AutoQuant series) and hospital information systems using the ASTM protocol. The system features a modern desktop application architecture with a clear separation of concerns and robust communication capabilities.
 
 ## 2. Technology Stack
 
@@ -23,8 +23,8 @@ This document outlines the technical specifications for a Laboratory Interfacing
 ### Backend (Rust)
 - **Language**: Rust
 - **Database**: SQLite with optional PostgreSQL
-- **ORM**: SQLx
-- **TCP/IP Communication**: tokio for async I/O
+- **ORM**: SQLx (Implemented)
+- **TCP/IP Communication**: tokio for async I/O (Implemented)
 - **File Storage**: Native file system operations
 - **Logging**: tracing/log crates
 - **Backend Folder**: src-tauri
@@ -34,8 +34,9 @@ This document outlines the technical specifications for a Laboratory Interfacing
 ### 3.1 Frontend Modules
 
 #### User Interface
-- **Dashboard**: Simple operational view showing connection status and received test results
+- **Dashboard**: Operational view showing connection status and received test results
 - **Result View**: Display of recently received test results
+- **Configuration View**: Settings for connections and system parameters
 
 #### UI Components
 - Reusable component library adhering to design system
@@ -58,8 +59,8 @@ This document outlines the technical specifications for a Laboratory Interfacing
 ### 3.2 Tauri Application Layer
 
 #### Commands
-- TCP server status commands
-- Test result retrieval commands
+- TCP server status commands (Implemented)
+- Test result retrieval commands (Implemented)
 - Configuration commands for TCP settings
 
 #### Event System
@@ -68,49 +69,78 @@ This document outlines the technical specifications for a Laboratory Interfacing
 - Error notification events
 
 #### IPC Bridge
-- Message serialization/deserialization
+- Message serialization/deserialization (Implemented)
 - Event forwarding between Rust and frontend
 
 ### 3.3 Backend Modules
 
-#### Handler Layer
-- **TCP Communication Handler**: Manages TCP server and client connections (IMMEDIATE FOCUS)
-- **ASTM Protocol Handler**: Handles ASTM protocol message parsing and validation (IMMEDIATE FOCUS)
-- **Data Handler**: Processes and validates incoming result data (IMMEDIATE FOCUS)
+#### Application Startup
+- Configuration loading
+- Database initialization
+- Services initialization
 
-#### Service Layer
-- **ASTM Protocol Service**: Implements ASTM E1381 and E1394 standards (IMMEDIATE FOCUS)
-- **Result Service**: Processes and stores test results (IMMEDIATE FOCUS)
+#### Core Services
+- **Machine Service**: Manages communication with medical analyzers (In Progress)
+- **Hospital Information Bridge**: Handles communication with hospital systems (Planned)
+
+#### Machine Service Internal
+- **Server Listener**: Manages TCP connections from analyzers
+- **Message Handler**: Processes incoming messages
+- **Patient Service**: Manages patient data
+- **Result Service**: Processes and stores test results
+- **Event Emitter**: Triggers events for frontend and HIS integration
+
+#### Handler Layer
+- **Configuration Handler**: Manages system settings (Planned)
+- **User Handler**: Manages user authentication and permissions (Planned)
+- **UI Handler**: Handles UI-related operations (Planned)
+
+#### Protocol Layer
+- **ASTM Protocol Service**: Implements ASTM E1381 and E1394 standards
+  - Supports Meril AutoQuant series analyzers
+  - Handles frame parsing and validation
+  - Processes ASTM records (H, P, O, R, C, Q, L)
+- **HL7 Service**: For future HL7 protocol support (Planned)
+- **FHIR Service**: For future FHIR protocol support (Planned)
 
 #### Storage Layer
-- **Database Adapter**: Simple abstraction for storing test results
-- **Connection Pool**: Basic connection management for database operations
+- **Database Adapter**: Abstraction for storing test results (Implemented)
+- **File Storage**: For storing logs and exports (Planned)
+- **Connection Pool**: Management for database operations (Implemented)
+- **Migration Manager**: Database schema versioning (Implemented)
+- **Cache Manager**: Performance optimization for frequently accessed data (Planned)
 
 ### 3.4 External Systems Integration
-- **AutoQuant Analyzers**: TCP/IP communication with laboratory equipment (IMMEDIATE FOCUS)
+- **Medical Analyzers**: Communication with laboratory equipment
+  - Meril AutoQuant series (In Progress)
+- **Hospital Information Systems**: Integration with hospital systems (Planned)
+- **Laboratory Information Systems**: Integration with lab systems (Planned)
 
 ## 4. Communication Protocols
 
-### 4.1 ASTM Protocol Implementation (IMMEDIATE FOCUS)
-- **Physical Layer**: TCP/IP communication
-  - Socket management with tokio
-  - Connection handling and timeout management
-  - Error recovery mechanisms
+### 4.1 ASTM Protocol Implementation (IMPLEMENTED)
+- **Physical Layer**: TCP/IP communication (IMPLEMENTED)
+  - Socket management with tokio (IMPLEMENTED)
+  - Connection handling and timeout management (IMPLEMENTED)
+  - Error recovery mechanisms (IMPLEMENTED)
 
-- **Data Link Layer**: Frame-based communication with checksums
-  - ENQ-ACK handshake implementation
-  - Frame construction and parsing
-  - Checksum calculation and validation
-  - ACK, NAK, EOT handling
+- **Data Link Layer**: Frame-based communication with checksums (IMPLEMENTED)
+  - ENQ-ACK handshake implementation (IMPLEMENTED)
+  - Frame construction and parsing (IMPLEMENTED)
+  - Checksum calculation and validation (IMPLEMENTED)
+  - ACK, NAK, EOT handling (IMPLEMENTED)
 
 - **Application Layer**: Record transmission protocol
   - Message Header Record (H)
   - Patient Information Record (P)
+  - Test Order Record (O)
   - Result Record (R)
+  - Comment Record (C)
+  - Request Information Record (Q)
   - Message Terminator Record (L)
 
-### 4.2 Communication Flow (IMMEDIATE FOCUS)
-The core TCP/IP communication flow with AutoQuant analyzers follows this sequence:
+### 4.2 Meril AutoQuant Communication Flow
+The system implements the specific communication flow required by Meril AutoQuant analyzers:
 
 1. **Establishment Phase**
    - LIS initializes TCP server and listens on configured port
@@ -131,65 +161,70 @@ The core TCP/IP communication flow with AutoQuant analyzers follows this sequenc
    - UI is updated with new results
    - Connection is closed or returned to waiting state
 
-This flow is documented in detail in the `docs/important-flows/tcp-communication-meril.mermaid` diagram.
-
 ## 5. Data Models
 
-### 5.1 Patient Model (Simplified for Initial Implementation)
-- Patient identification
-- Basic demographics
+### 5.1 Patient Model (PLANNED)
+- Patient identification (ID, name)
+- Demographics (age, gender, DOB)
+- Contact information
+- Relationships to other records
 
-### 5.2 Result Model (IMMEDIATE FOCUS)
+### 5.2 Result Model (PLANNED)
 - Test results with units
 - Reference ranges
 - Flags for abnormal results
 - Testing metadata
 - Analyzer identification
+- Timestamps for collection, testing, and reporting
 
-## 6. Development Workflow
+### 5.3 Analyzer Model (PLANNED)
+- Analyzer configuration and status
+- Connection settings
+- Device identification
+- Protocol settings
 
-### 6.1 Development Environment
-- Local development using Vite dev server
-- Hot module replacement for frontend
-- Cargo watch for auto-recompiling Rust code
+### 5.4 Upload Status Model (PLANNED)
+- Result upload tracking
+- Status monitoring
+- Response handling
+- Error tracking
 
-### 6.2 Code Organization
-- Feature-based organization focusing first on TCP communication
-- Shared utility libraries for ASTM protocol handling
+## 6. Development Roadmap
 
-### 6.3 Testing Strategy
-- Unit testing for ASTM protocol parsing
-- Integration testing for TCP communication
-- ASTM protocol simulator for end-to-end testing without physical analyzers
+### 6.1 Phase 1: Core Infrastructure (COMPLETED)
+- Database setup
+- ASTM protocol implementation
+- Basic TCP communication
 
-## 7. Initial Implementation Plan
+### 6.2 Phase 2: Core Services (IN PROGRESS)
+- Patient service implementation
+- Test result service implementation
+- Machine service for Meril AutoQuant analyzers
 
-### 7.1 Phase 1: TCP Server and Protocol Handler
-- Implement basic TCP server with tokio
-- Develop ASTM protocol frame parsing and validation
-- Create simple data storage for received results
+### 6.3 Phase 3: Integration Layer (PLANNED)
+- Hospital bridge service
+- Result upload functionality
+- Frontend integration
 
-### 7.2 Phase 2: Frontend Integration
-- Implement Tauri commands for accessing TCP server status
-- Create basic UI for displaying connection status
-- Implement real-time updates for received results
+### 6.4 Phase 4: User Interface (PLANNED)
+- Dashboard development
+- Result viewer implementation
+- Configuration interface
 
-### 7.3 Phase 3: Testing and Validation
-- Develop ASTM protocol simulator for testing
-- Validate against real-world ASTM messages
-- Implement error handling and recovery mechanisms
-
-## 8. Security Considerations
+## 7. Security Considerations
 
 - Secure storage of patient data
 - Input validation for all received ASTM messages
 - Audit logging of communication events
+- User authentication and authorization
+- Data encryption where appropriate
 
-## 9. Future Expansions
-After implementing the core TCP communication flow, the system will be expanded to include:
+## 8. Future Expansions
 
+After implementing the core functionality, the system will be expanded to include:
+- Support for additional analyzer protocols
 - Advanced patient management
 - Comprehensive reporting
-- Hospital information system integration
-- Additional analyzer protocol support
-- Enhanced user interface with more features
+- Enhanced hospital information system integration
+- Mobile access capabilities
+- Analytics and trend analysis

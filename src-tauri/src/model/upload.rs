@@ -43,4 +43,4 @@ pub struct ResultUploadStatus {
     pub retry_count: u32,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-} 
+}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Lock, Mail, Eye, EyeOff, FlaskRound as Flask } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Button from '../../components/ui/Button';

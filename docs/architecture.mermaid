@@ -6,30 +6,42 @@ graph TD
         Hooks[Custom Hooks]
         API_Client[API Client]
     end
-
+    
     subgraph "Tauri Application Layer"
         Commands[Tauri Commands]
         Events[Event System]
         IPC[IPC Bridge]
         Window[Window Management]
     end
-
+    
     subgraph "Backend (Rust)"
-        subgraph "Handler Layer"
-            LIS_Handler[LIS Communication Handler]
-            Device_Handler[Device Handler]
-            Data_Handler[Data Handler]
-            User_Handler[User Handler]
-            Config_Handler[Configuration Handler]
+        subgraph "Application Startup"
+            App_Init[App Initialization]
         end
         
-        subgraph "Service Layer"
-            ASTM_Service[ASTM Protocol Service]
+        subgraph "Core Services"
+            Machine_Service[Machine Service]
+            HIS_Bridge[Hospital Information Bridge]
+        end
+        
+        subgraph "Machine Service Internal"
+            Server_Listener[Server Listener]
+            Message_Handler[Message Handler]
             Patient_Service[Patient Service]
             Result_Service[Result Service]
-            Auth_Service[Authentication Service]
-            Report_Service[Reporting Service]
-            Validation_Service[Validation Service]
+            Event_Emitter[Event Emitter]
+        end
+        
+        subgraph "Handler Layer"
+            Config_Handler[Configuration Handler]
+            User_Handler[User Handler]
+            UI_Handler[UI Handler]
+        end
+        
+        subgraph "Protocol Layer"
+            ASTM_Service[ASTM Protocol Service]
+            HL7_Service[HL7 Protocol Service]
+            FHIR_Service[FHIR Protocol Service]
         end
         
         subgraph "Storage Layer"
@@ -40,65 +52,95 @@ graph TD
             Cache[Cache Manager]
         end
     end
-
+    
     subgraph "External Systems"
-        Analyzers[AutoQuant Analyzers]
+        Analyzers[Medical Analyzers]
         HIS[Hospital Information Systems]
-        LIMS[Other Laboratory Systems]
+        LIMS[Laboratory Information Systems]
     end
-
+    
     %% Frontend Internal Connections
     UI --> UIComponents
     UIComponents --> State
     UIComponents --> Hooks
     Hooks --> API_Client
     State --> API_Client
-
+    
     %% Tauri Layer Connections
     API_Client --> IPC
     IPC --> Commands
     Commands --> Events
     Events --> Window
-
-    %% Backend Internal Connections
-    Commands --> LIS_Handler
-    Commands --> Device_Handler
-    Commands --> Data_Handler
-    Commands --> User_Handler
-    Commands --> Config_Handler
     
-    LIS_Handler --> ASTM_Service
-    Device_Handler --> ASTM_Service
-    Data_Handler --> Patient_Service
-    Data_Handler --> Result_Service
-    User_Handler --> Auth_Service
-    Config_Handler --> Validation_Service
+    %% Application Startup Flow
+    Commands --> App_Init
+    App_Init --> Machine_Service
+    App_Init --> HIS_Bridge
+    App_Init --> Config_Handler
+    App_Init --> User_Handler
+    App_Init --> UI_Handler
     
-    Patient_Service --> Report_Service
-    Result_Service --> Report_Service
+    %% Machine Service Internal Architecture
+    Machine_Service --> Server_Listener
+    Machine_Service --> Patient_Service
+    Machine_Service --> Result_Service
+    Machine_Service --> Event_Emitter
     
-    ASTM_Service --> DB_Adapter
+    Server_Listener --> Message_Handler
+    Message_Handler --> Patient_Service
+    Message_Handler --> Result_Service
+    Message_Handler --> Event_Emitter
+    
+    %% Handler Connections
+    UI_Handler --> Machine_Service
+    Config_Handler --> Machine_Service
+    User_Handler --> Machine_Service
+    
+    %% Protocol Services (used by Message Handler)
+    Message_Handler --> ASTM_Service
+    Message_Handler --> HL7_Service
+    Message_Handler --> FHIR_Service
+    
+    %% Storage Layer Connections
     Patient_Service --> DB_Adapter
     Result_Service --> DB_Adapter
-    Auth_Service --> DB_Adapter
-    Report_Service --> File_Storage
-    
     DB_Adapter --> Connection_Pool
     DB_Adapter --> Migration
     DB_Adapter --> Cache
     
-    %% External Connections
-    ASTM_Service <--> Analyzers
-    ASTM_Service <--> HIS
-    ASTM_Service <--> LIMS
-
+    HIS_Bridge --> File_Storage
+    
+    %% Event System for HIS Integration
+    Event_Emitter --> Events
+    Events --> HIS_Bridge
+    
+    %% External System Connections
+    Server_Listener <--> Analyzers
+    HIS_Bridge <--> HIS
+    HIS_Bridge <--> LIMS
+    
+    %% Data Flow Indicators
+    Machine_Service -.->|"Owns & Manages"| Patient_Service
+    Machine_Service -.->|"Owns & Manages"| Result_Service
+    Event_Emitter -.->|"Triggers"| HIS_Bridge
+    
     %% Define styles
     classDef frontend fill:#f9f,stroke:#333,stroke-width:2px;
     classDef tauri fill:#bbf,stroke:#333,stroke-width:2px;
-    classDef backend fill:#bfb,stroke:#333,stroke-width:2px;
+    classDef core fill:#bfb,stroke:#333,stroke-width:3px;
+    classDef service fill:#bfb,stroke:#333,stroke-width:2px;
+    classDef handler fill:#ffc,stroke:#333,stroke-width:2px;
+    classDef protocol fill:#fcf,stroke:#333,stroke-width:2px;
+    classDef storage fill:#cff,stroke:#333,stroke-width:2px;
     classDef external fill:#fbb,stroke:#333,stroke-width:2px;
+    classDef startup fill:#afa,stroke:#333,stroke-width:2px;
     
     class UI,UIComponents,State,Hooks,API_Client frontend;
-    class Commands,Events,IPC,Window tauri;
-    class LIS_Handler,Device_Handler,Data_Handler,User_Handler,Config_Handler,ASTM_Service,Patient_Service,Result_Service,Auth_Service,Report_Service,Validation_Service,DB_Adapter,File_Storage,Connection_Pool,Migration,Cache backend;
+    class Commands,IPC,Events,Window tauri;
+    class Machine_Service,HIS_Bridge core;
+    class Server_Listener,Message_Handler,Patient_Service,Result_Service,Event_Emitter service;
+    class Config_Handler,User_Handler,UI_Handler handler;
+    class ASTM_Service,HL7_Service,FHIR_Service protocol;
+    class DB_Adapter,File_Storage,Connection_Pool,Migration,Cache storage;
     class Analyzers,HIS,LIMS external;
+    class App_Init startup;

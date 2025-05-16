@@ -12,7 +12,7 @@ import {
   Legend,
   Filler,
 } from 'chart.js';
-import { Activity, AlertCircle, CheckCircle2, ClipboardCheck, Clock, ExternalLink, FlaskRound as Flask, Upload } from 'lucide-react';
+import { Activity, AlertCircle, ClipboardCheck, ExternalLink, FlaskRound as Flask, Upload } from 'lucide-react';
 
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -147,18 +147,18 @@ export default function Dashboard() {
         </Card>
         
         {/* Test Distribution by Type */}
-        {/* <Card title="Test Distribution by Type" className="h-100">
+        <Card title="Test Distribution by Type" className="h-100">
           <div className="h-full flex items-center justify-center">
             <div className="h-64 w-64">
               <Doughnut data={testTypeData} />
             </div>
           </div>
-        </Card> */}
+        </Card>
       </div>
       
-      {/* <div className="grid grid-cols-1 lg:grid-cols-3 gap-6"> */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* System Status */}
-        {/* <Card 
+        <Card 
           title="System Status" 
           className="lg:col-span-1"
           actions={
@@ -176,9 +176,9 @@ export default function Dashboard() {
             ))}
           </div>
         </Card>
-         */}
+        
         {/* Pending Actions */}
-        {/* <Card 
+        <Card 
           title="Pending Actions" 
           className="lg:col-span-1"
           actions={
@@ -206,10 +206,10 @@ export default function Dashboard() {
               );
             })}
           </div>
-        </Card> */}
+        </Card>
         
         {/* Turnaround Time */}
-        {/* <Card title="Average Turnaround Time by Test Type" className="lg:col-span-1">
+        <Card title="Average Turnaround Time by Test Type" className="lg:col-span-1">
           <Bar 
             data={turnaroundTimeData} 
             options={{
@@ -218,8 +218,8 @@ export default function Dashboard() {
             }} 
             height={200} 
           />
-        </Card> */}
-      {/* </div> */}
+        </Card>
+      </div>
     </div>
   );
 }

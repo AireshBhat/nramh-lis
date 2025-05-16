@@ -3,6 +3,7 @@ import { Suspense, lazy } from 'react';
 import Layout from './components/layout/Layout';
 import LoadingScreen from './components/ui/LoadingScreen';
 import Dashboard from './pages/Dashboard';
+// import Database from '@tauri-apps/plugin-sql';
 
 // Lazy loaded routes
 // const Login = lazy(() => import('./pages/auth/Login'));
@@ -22,6 +23,7 @@ const TransmissionDashboard = lazy(() => import('./pages/integration/Transmissio
 // const AuditLog = lazy(() => import('./pages/admin/AuditLog'));
 
 function App() {
+  // Database.load('sqlite:mydatabase.db');
   return (
     <Routes>
       {/* <Route path="/login" element={

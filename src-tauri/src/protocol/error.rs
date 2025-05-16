@@ -27,3 +27,5 @@ pub enum ProtocolError {
     #[error("Protocol error: {0}")]
     ProtocolError(String),
 }
+
+pub type Result<T> = std::result::Result<T, ProtocolError>;

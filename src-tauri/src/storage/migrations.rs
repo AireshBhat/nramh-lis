@@ -14,7 +14,7 @@ pub fn get_migrations() -> Vec<Migration> {
                     last_name TEXT,
                     middle_name TEXT,
                     title TEXT,
-                    birth_date TEXT,
+                    birth_date DATETIME,
                     sex TEXT NOT NULL,
                     street TEXT,
                     city TEXT,
@@ -29,8 +29,8 @@ pub fn get_migrations() -> Vec<Migration> {
                     height_unit TEXT,
                     weight_value REAL,
                     weight_unit TEXT,
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL
                 );
                 
                 CREATE INDEX IF NOT EXISTS idx_patients_patient_id ON patients (patient_id);
@@ -55,8 +55,8 @@ pub fn get_migrations() -> Vec<Migration> {
                     com_port TEXT,
                     baud_rate INTEGER,
                     status TEXT CHECK (status IN ('ACTIVE', 'INACTIVE', 'MAINTENANCE')) DEFAULT 'ACTIVE',
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL
                 );
             "#,
             kind: MigrationKind::Up,
@@ -79,12 +79,12 @@ pub fn get_migrations() -> Vec<Migration> {
                     abnormal_flag TEXT,
                     nature_of_abnormality TEXT,
                     status TEXT NOT NULL,
-                    completed_date_time TEXT,
+                    completed_date_time DATETIME,
                     sequence_number INTEGER,
                     instrument TEXT,
                     analyzer_id TEXT,
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL,
                     FOREIGN KEY (patient_id) REFERENCES patients (patient_id),
                     FOREIGN KEY (analyzer_id) REFERENCES analyzers (analyzer_id)
                 );
@@ -106,17 +106,41 @@ pub fn get_migrations() -> Vec<Migration> {
                     result_id TEXT NOT NULL,
                     external_system_id TEXT NOT NULL,
                     upload_status TEXT CHECK (upload_status IN ('PENDING', 'UPLOADING', 'UPLOADED', 'FAILED')) DEFAULT 'PENDING',
-                    upload_date TEXT,
+                    upload_date DATETIME,
                     response_code TEXT,
                     response_message TEXT,
                     retry_count INTEGER DEFAULT 0,
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL,
                     FOREIGN KEY (result_id) REFERENCES test_results (result_id)
                 );
                 
                 CREATE INDEX IF NOT EXISTS idx_result_upload_status_result_id ON result_upload_status (result_id);
                 CREATE INDEX IF NOT EXISTS idx_result_upload_status_status ON result_upload_status (upload_status);
+            "#,
+            kind: MigrationKind::Up,
+        },
+        // Migration 5: Insert Meril machine details into analyzers table
+        Migration {
+            version: 5,
+            description: "insert_meril_machine_details",
+            sql: r#"
+                INSERT OR IGNORE INTO analyzers (analyzer_id, name, model, serial_number, manufacturer, connection_type, ip_address, port, com_port, baud_rate, status, created_at, updated_at)
+                VALUES (
+                    'MERIL_001',
+                    'Meril AutoQuant',
+                    '100i',
+                    'SN123456',
+                    'Meril Diagnostics',
+                    'TCP/IP',
+                    '192.168.1.100',
+                    8080,
+                    NULL,
+                    9600,
+                    'ACTIVE',
+                    DATETIME('2025-05-12 00:00:00'),
+                    DATETIME('2025-05-12 00:00:00')
+                );
             "#,
             kind: MigrationKind::Up,
         },
