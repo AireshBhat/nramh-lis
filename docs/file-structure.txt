@@ -127,6 +127,7 @@ src-tauri/
 │   │
 │   ├── storage/                        # Repository Abstraction Layer
 │   │   ├── mod.rs
+│   │   ├── db.rs
 │   │   ├── repository_manager.rs       # Repository coordinator
 │   │   ├── traits/                     # Repository interfaces
 │   │   │   ├── mod.rs
@@ -137,30 +138,16 @@ src-tauri/
 │   │   │   ├── sample_repository.rs
 │   │   │   ├── upload_repository.rs
 │   │   │   └── settings_repository.rs
-│   │   ├── sqlite/                     # SQLite implementations
-│   │   │   ├── mod.rs
-│   │   │   ├── connection.rs
-│   │   │   ├── migrations.rs
-│   │   │   ├── analyzers.rs
-│   │   │   ├── patients.rs
-│   │   │   ├── test_results.rs
-│   │   │   ├── samples.rs
-│   │   │   ├── uploads.rs
-│   │   │   └── settings.rs
-│   │   ├── models/                     # Database models
-│   │   │   ├── mod.rs
-│   │   │   ├── analyzer_model.rs
-│   │   │   ├── patient_model.rs
-│   │   │   ├── test_result_model.rs
-│   │   │   ├── sample_model.rs
-│   │   │   ├── upload_model.rs
-│   │   │   └── settings_model.rs
-│   │   └── mappers/                    # Entity-Model mappers
+│   │   └── repositories/                     # Repository implementations
 │   │       ├── mod.rs
-│   │       ├── analyzer_mapper.rs
-│   │       ├── patient_mapper.rs
-│   │       ├── test_result_mapper.rs
-│   │       └── sample_mapper.rs
+│   │       ├── connection_repository.rs
+│   │       ├── migrations_repository.rs
+│   │       ├── analyzer_repository.rs
+│   │       ├── patient_repository.rs
+│   │       ├── test_result_repository.rs
+│   │       ├── sample_repository.rs
+│   │       ├── upload_repository.rs
+│   │       └── settings_repository.rs
 │   │
 │   ├── infrastructure/                 # Cross-cutting Concerns
 │   │   ├── mod.rs

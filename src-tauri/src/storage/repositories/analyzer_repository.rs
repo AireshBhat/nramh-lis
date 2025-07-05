@@ -2,9 +2,9 @@ use async_trait::async_trait;
 use sqlx::{SqlitePool, Row};
 use chrono::{DateTime, Utc};
 
-use crate::model::{Analyzer, AnalyzerStatus, ConnectionType, Protocol};
+use crate::domain::entities::{Analyzer, AnalyzerStatus, ConnectionType, Protocol};
 use crate::storage::traits::AnalyzerRepository;
-use crate::model::Error as ModelError;
+use crate::infrastructure::error::Error as ModelError;
 
 #[derive(Debug)]
 pub struct SqliteAnalyzerRepository {

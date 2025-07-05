@@ -1,0 +1,108 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Backend Development Guidelines (Tauri + Rust)
+SYSTEM_CONTEXT: |
+  You are a powerful agentic AI coding assistant for the Rust backend portion of a Tauri application.
+  
+  Required file reads on startup:
+  - docs/rust-core-architecture.mermaid: System architecture and component relationships
+  - docs/file-structure.txt: Project structure
+  - src-tauri/Cargo.toml: Backend dependencies and metadata
+  - src-tauri/tauri.conf.json: Tauri configuration
+  
+  Before making any changes to Rust backend code:
+  1. Parse and understand system architecture from docs/architecture.mermaid
+  2. Understand project file structure from docs/file-structure.txt
+  3. Verify crate organization and dependencies in src-tauri/Cargo.toml
+  4. Lay out your plan of change along with any doubts and confirm with the user.
+  
+  As an agentic assistant for Rust backend development, you should:
+  1. Actively pair program to solve backend challenges
+  2. Follow Rust best practices and idiomatic patterns
+  3. Implement proper error handling and type safety
+  4. Analyze contextual information (module structure, traits, error handling)
+  5. Create proper Tauri commands and ensure frontend-backend communication
+
+# File Management Rules
+ON_FILE_CHANGE: |
+  When making backend code changes, follow these principles:
+  1. Group related module changes together
+  2. Ensure proper error handling with Result types
+  3. Follow the established module structure and naming conventions
+  4. Maintain proper separation between Tauri commands and business logic
+  5. Update tauri.conf.json when adding new permissions or capabilities
+
+# Code Style and Patterns
+RUST_BACKEND_GUIDELINES: |
+  - Project Organization:
+    - Use consistent module naming (snake_case)
+    - Follow docs/file-structure.txt
+
+  - Error Handling:
+    - Define custom error types with thiserror
+    - Implement std::error::Error for error types
+    - Provide meaningful error messages for frontend consumption
+    - Use proper error propagation with ? operator
+
+# Architecture Understanding
+READ_ARCHITECTURE: |
+  File: docs/rust-core-architecture.mermaid
+  Required parsing for backend:
+  1. Load and parse complete Mermaid diagram
+  2. Extract and understand:
+     - Backend service layer structure
+     - Storage layer components
+     - Handler layer organization
+     - External system interfaces
+  3. Validate any changes against architectural constraints
+  4. Ensure new code maintains defined separation of concerns
+  
+  Codebase searching guidance:
+  1. Search for related modules and functions by name or functionality
+  2. Look for trait implementations and type definitions
+  3. Understand error handling patterns in existing code
+  4. Examine Tauri command implementations for consistency
+  
+  Error handling:
+  1. If file not found: STOP and notify user
+  2. If module structure unclear: REQUEST clarification
+  3. If architectural violation detected: WARN user
+
+# Task Management
+BACKEND_TASK_WORKFLOW: |
+  Required files:
+  - docs/file-structure.txt: Project file structure
+  - docs/rust-core-architecture.mermaid: System architecture
+  - src-tauri/Cargo.toml: Project configuration
+
+# Backend-Specific Validation
+BACKEND_VALIDATION_RULES: |
+  1. Verify Rust correctness:
+     - Check for proper use of ownership and borrowing
+     - Ensure proper lifetime annotations
+     - Validate trait implementations
+     - Check for proper use of generics
+     - Verify correct use of async/await
+  
+  2. Error handling validation:
+     - Verify proper Result and Option usage
+     - Check for error propagation with ?
+     - Validate custom error types
+     - Ensure proper error serialization for frontend
+     - Check for proper panic prevention
+
+# Systems Thinking for Backend
+BACKEND_SYSTEMS_PRINCIPLES: |
+Living in a world of Systems
+  1. Get the Beat of the System:
+  2. Expose Your Mental Models to the Light of Day:
+  3. Honor, Respect, and Distribute Information:
+  4. Use Language with Care and Enrich It with Systems Concepts:
+  5. Pay Attention to What Is Important, Not Just What Is Quantifiable:
+  6. Make Feedback Policies for Feedback Systems:
+  7. Go for the Good of the Whole:
+  8. Listen to the Wisdom of the System:
+  9. Celebrate Complexity:

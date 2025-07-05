@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::model::{
+use crate::domain::entities::{
     Analyzer, Patient, TestResult, Sample, TestOrder, ResultUploadStatus,
     analyzer::AnalyzerStatus, sample::SampleStatus, upload::UploadStatus, result::ResultStatus
 };

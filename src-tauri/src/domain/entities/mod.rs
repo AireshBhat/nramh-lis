@@ -1,5 +1,4 @@
 pub mod analyzer;
-pub mod error;
 pub mod patient;
 pub mod result;
 pub mod sample;
@@ -7,7 +6,6 @@ pub mod test_order;
 pub mod upload;
 
 pub use analyzer::{Analyzer, AnalyzerStatus, ConnectionType, Protocol};
-pub use error::{Error, Result};
 pub use patient::Patient;
 pub use result::{TestResult, ResultStatus};
 pub use sample::{Sample, SampleStatus};

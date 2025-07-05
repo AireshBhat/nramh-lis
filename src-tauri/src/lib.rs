@@ -1,6 +1,7 @@
 pub mod storage;
-pub mod handlers;
-pub mod model;
+pub mod api;
+pub mod domain;
+pub mod infrastructure;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -22,7 +23,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             greet,
-            handlers::ip_handler::get_local_ip
+            api::handlers::ip_handler::get_local_ip
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
