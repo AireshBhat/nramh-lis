@@ -1,0 +1,178 @@
+graph TD
+    %% External Interfaces
+    FE[Frontend Next.js] -->|invoke| API[Tauri Command API Layer]
+    DEV[Laboratory Devices] -->|ASTM/HL7 Messages| CONN[Connection Layer]
+    HIS[Hospital Information System] -->|REST API| HTTP[HTTP Client Layer]
+    
+    %% API Command Layer
+    API --> CMD1[Device Management Commands]
+    API --> CMD2[Data Query Commands] 
+    API --> CMD3[Configuration Commands]
+    API --> CMD4[System Status Commands]
+    API --> CMD5[Upload Management Commands]
+    
+    %% Service Orchestration Layer
+    CMD1 --> DOS[Device Orchestration Service]
+    CMD2 --> DQS[Data Query Service]
+    CMD3 --> CS[Configuration Service]
+    CMD4 --> SMS[System Monitoring Service]
+    CMD5 --> UMS[Upload Management Service]
+    
+    %% Protocol Processing Layer
+    DOS --> PM[Protocol Manager]
+    PM --> ASTM[ASTM Protocol Handler]
+    PM --> HL7[HL7 Protocol Handler]
+    
+    %% Connection Management Layer
+    ASTM --> CONN
+    HL7 --> CONN
+    CONN --> TCP[TCP/IP Connection Manager]
+    CONN --> SERIAL[Serial Connection Manager]
+    
+    %% Message Processing Pipeline
+    TCP --> ML[Message Listener]
+    SERIAL --> ML
+    ML --> MP[Message Parser]
+    MP --> MV[Message Validator]
+    MV --> MT[Message Transformer]
+    
+    %% Data Processing Layer
+    MT --> DP[Data Processor]
+    DP --> PR[Patient Resolver]
+    DP --> SR[Sample Resolver]
+    DP --> RR[Result Resolver]
+    
+    %% Repository Abstraction Layer
+    PR --> REPO[Repository Manager]
+    SR --> REPO
+    RR --> REPO
+    DQS --> REPO
+    
+    REPO --> AR[Analyzer Repository]
+    REPO --> PAR[Patient Repository]
+    REPO --> TRR[Test Result Repository]
+    REPO --> SAR[Sample Repository]
+    REPO --> UR[Upload Repository]
+    REPO --> SET[Settings Repository]
+    
+    %% Data Persistence Layer
+    AR --> DB[(SQLite Database)]
+    PAR --> DB
+    TRR --> DB
+    SAR --> DB
+    UR --> DB
+    SET --> DB
+    
+    %% Event System
+    DP --> ES[Event System]
+    ES --> EVT1[Device Events]
+    ES --> EVT2[Data Events]
+    ES --> EVT3[Error Events]
+    ES --> EVT4[System Events]
+    
+    %% Cross-Cutting Concerns
+    LOG[Logging Service] -.-> DOS
+    LOG -.-> PM
+    LOG -.-> ML
+    LOG -.-> DP
+    
+    ERR[Error Handler] -.-> API
+    ERR -.-> PM
+    ERR -.-> CONN
+    ERR -.-> DP
+    
+    CFG[Configuration Manager] -.-> PM
+    CFG -.-> CONN
+    CFG -.-> REPO
+    
+    CACHE[Cache Manager] -.-> REPO
+    CACHE -.-> DQS
+    
+    %% External Integration
+    UMS --> HTTP
+    HTTP --> UPLOAD[Upload Processor]
+    UPLOAD --> RETRY[Retry Manager]
+    
+    %% Health Monitoring
+    SMS --> HEALTH[Health Check Service]
+    HEALTH --> DEV_HEALTH[Device Health Monitor]
+    HEALTH --> SYS_HEALTH[System Health Monitor]
+    HEALTH --> DB_HEALTH[Database Health Monitor]
+    
+    %% Styling - API Layer
+    style API fill:#e1f5fe,stroke:#01579b,stroke-width:3px
+    style CMD1 fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    style CMD2 fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    style CMD3 fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    style CMD4 fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    style CMD5 fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    
+    %% Service Layer
+    style DOS fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    style DQS fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    style CS fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    style SMS fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    style UMS fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    
+    %% Protocol Layer
+    style PM fill:#f3e5f5,stroke:#7b1fa2,stroke-width:3px
+    style ASTM fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px
+    style HL7 fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px
+    
+    %% Connection Layer
+    style CONN fill:#fce4ec,stroke:#c2185b,stroke-width:3px
+    style TCP fill:#ffebee,stroke:#d32f2f,stroke-width:2px
+    style SERIAL fill:#ffebee,stroke:#d32f2f,stroke-width:2px
+    
+    %% Message Processing
+    style ML fill:#e0f2f1,stroke:#00695c,stroke-width:2px
+    style MP fill:#e0f2f1,stroke:#00695c,stroke-width:2px
+    style MV fill:#e0f2f1,stroke:#00695c,stroke-width:2px
+    style MT fill:#e0f2f1,stroke:#00695c,stroke-width:2px
+    
+    %% Data Processing
+    style DP fill:#fff8e1,stroke:#ff8f00,stroke-width:3px
+    style PR fill:#f1f8e9,stroke:#558b2f,stroke-width:2px
+    style SR fill:#f1f8e9,stroke:#558b2f,stroke-width:2px
+    style RR fill:#f1f8e9,stroke:#558b2f,stroke-width:2px
+    
+    %% Repository Layer
+    style REPO fill:#fafafa,stroke:#424242,stroke-width:3px
+    style AR fill:#f5f5f5,stroke:#616161,stroke-width:1px
+    style PAR fill:#f5f5f5,stroke:#616161,stroke-width:1px
+    style TRR fill:#f5f5f5,stroke:#616161,stroke-width:1px
+    style SAR fill:#f5f5f5,stroke:#616161,stroke-width:1px
+    style UR fill:#f5f5f5,stroke:#616161,stroke-width:1px
+    style SET fill:#f5f5f5,stroke:#616161,stroke-width:1px
+    
+    %% Database
+    style DB fill:#e0e0e0,stroke:#212121,stroke-width:4px
+    
+    %% Event System
+    style ES fill:#e8f5e8,stroke:#4caf50,stroke-width:3px
+    style EVT1 fill:#f1f8e9,stroke:#689f38,stroke-width:1px
+    style EVT2 fill:#f1f8e9,stroke:#689f38,stroke-width:1px
+    style EVT3 fill:#f1f8e9,stroke:#689f38,stroke-width:1px
+    style EVT4 fill:#f1f8e9,stroke:#689f38,stroke-width:1px
+    
+    %% Cross-cutting Concerns
+    style LOG fill:#fff3e0,stroke:#ff9800,stroke-width:2px,stroke-dasharray: 5 5
+    style ERR fill:#ffebee,stroke:#f44336,stroke-width:2px,stroke-dasharray: 5 5
+    style CFG fill:#e3f2fd,stroke:#2196f3,stroke-width:2px,stroke-dasharray: 5 5
+    style CACHE fill:#f3e5f5,stroke:#9c27b0,stroke-width:2px,stroke-dasharray: 5 5
+    
+    %% External Integration
+    style HTTP fill:#e8f5e8,stroke:#4caf50,stroke-width:2px
+    style UPLOAD fill:#f1f8e9,stroke:#689f38,stroke-width:2px
+    style RETRY fill:#f1f8e9,stroke:#689f38,stroke-width:2px
+    
+    %% Health Monitoring
+    style HEALTH fill:#e0f7fa,stroke:#00acc1,stroke-width:2px
+    style DEV_HEALTH fill:#e0f2f1,stroke:#26a69a,stroke-width:1px
+    style SYS_HEALTH fill:#e0f2f1,stroke:#26a69a,stroke-width:1px
+    style DB_HEALTH fill:#e0f2f1,stroke:#26a69a,stroke-width:1px
+    
+    %% External Systems
+    style FE fill:#ff9999,stroke:#333,stroke-width:3px
+    style DEV fill:#ff9999,stroke:#333,stroke-width:3px
+    style HIS fill:#ff9999,stroke:#333,stroke-width:3px
