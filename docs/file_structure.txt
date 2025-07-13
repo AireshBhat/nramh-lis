@@ -1,0 +1,21 @@
+lab-machine-interface/
+├── src-tauri/              # Rust backend
+│   ├── src/
+│   │   ├── main.rs
+│   │   ├── lib.rs
+│   │   ├── api/            # Tauri commands
+│   │   ├── core/           # Business logic
+│   │   ├── protocol/       # Protocol handlers
+│   │   └── models/         # Data structures
+│   ├── Cargo.toml
+│   └── tauri.conf.json
+├── src/                    # React frontend
+│   ├── components/
+│   ├── hooks/
+│   ├── services/
+│   └── App.tsx
+├── config/                 # Configuration files
+│   ├── machines.json
+│   └── system.json
+└── test-data/             # Mock data for testing
+    └── sample-messages.json

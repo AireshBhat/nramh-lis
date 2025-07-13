@@ -9,6 +9,23 @@
     "core:default",
     "opener:default",
     "sql:default",
-    "log:default"
+    "sql:allow-execute",
+    "sql:allow-load",
+    "sql:allow-select",
+    "sql:allow-close",
+    "log:default",
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        {
+          "path": "$APPDATA"
+        },
+        {
+          "path": "$APPDATA/**/*"
+        }
+      ]
+    },
+    "fs:default",
+    "store:default"
   ]
 }

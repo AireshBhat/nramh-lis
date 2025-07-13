@@ -7,7 +7,7 @@ pub mod upload;
 
 pub use analyzer::{Analyzer, AnalyzerStatus, ConnectionType, Protocol};
 pub use patient::Patient;
-pub use result::{TestResult, ResultStatus};
+pub use result::{ResultStatus, TestResult};
 pub use sample::{Sample, SampleStatus};
 pub use test_order::TestOrder;
 pub use upload::{ResultUploadStatus, UploadStatus};

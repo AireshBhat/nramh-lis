@@ -46,7 +46,7 @@ mod tests {
     fn test_get_local_ip_address() {
         let result = get_local_ip_address();
         assert!(result.success || result.error_message.is_some());
-        
+
         if result.success {
             assert!(!result.ip_address.is_empty());
             println!("Local IP: {}", result.ip_address);
@@ -54,4 +54,4 @@ mod tests {
             println!("Error: {:?}", result.error_message);
         }
     }
-} 
+}

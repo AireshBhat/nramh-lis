@@ -1,0 +1,110 @@
+flowchart TD
+    subgraph "LIS Software"
+        A[Start LIS Application] --> B[Initialize TCP Server]
+        B --> C[Listen on Configured Port]
+        
+        C --> D{Incoming\nConnection?}
+        D -->|No| C
+        D -->|Yes| E[Accept Connection]
+        
+        E --> F[Start Connection Handler Thread]
+        F --> G[Wait for ENQ from Analyzer]
+        
+        G --> H{Received\nENQ?}
+        H -->|No| G
+        H -->|Yes| I[Send ACK to Analyzer]
+        
+        I --> J[Wait for Data Frame]
+        
+        J --> K{Received\nFrame?}
+        K -->|No| L{Timeout?}
+        L -->|Yes| M[Log Error]
+        M --> C
+        L -->|No| J
+        
+        K -->|Yes| N[Validate Frame]
+        N --> O{Valid\nChecksum?}
+        O -->|No| P[Send NAK]
+        P --> J
+        
+        O -->|Yes| Q[Send ACK]
+        Q --> R[Parse ASTM Records]
+        
+        R --> S{EOT\nReceived?}
+        S -->|No| J
+        
+        S -->|Yes| T[Process Complete Message]
+        T --> U[Store Results in Database]
+        U --> V[Update UI]
+        V --> W[Send Notifications If Needed]
+        
+        W --> G
+    end
+    
+    subgraph "Database"
+        DB[(Results Database)]
+    end
+    
+    subgraph "AutoQuant Analyzer"
+        AA[Complete Test Run] --> BB[Format Results as ASTM]
+        BB --> CC[Connect to LIS TCP Server]
+        CC --> DD[Send ENQ]
+        
+        DD --> EE{Received\nACK?}
+        EE -->|No| FF{Timeout?}
+        FF -->|No| DD
+        FF -->|Yes| GG[Retry or Error]
+        GG --> CC
+        
+        EE -->|Yes| HH[Send Header Record Frame]
+        HH --> II{Received\nACK?}
+        II -->|No| JJ[Retry Frame]
+        JJ --> HH
+        
+        II -->|Yes| KK[Send Patient Record Frame]
+        KK --> LL{Received\nACK?}
+        LL -->|No| MM[Retry Frame]
+        MM --> KK
+        
+        LL -->|Yes| NN[Send Result Record Frames]
+        NN --> OO{Received\nACK?}
+        OO -->|No| PP[Retry Frame]
+        PP --> NN
+        
+        OO -->|Yes| QQ[Send Terminator Record Frame]
+        QQ --> RR{Received\nACK?}
+        RR -->|No| SS[Retry Frame]
+        SS --> QQ
+        
+        RR -->|Yes| TT[Send EOT]
+        TT --> UU[Close Connection]
+    end
+    
+    U --> DB
+    
+    %% Connection Lines Between Systems
+    DD -.->|ENQ| G
+    I -.->|ACK| EE
+    HH -.->|Frame| J
+    KK -.->|Frame| J
+    NN -.->|Frame| J
+    QQ -.->|Frame| J
+    TT -.->|EOT| S
+    Q -.->|ACK| II
+    Q -.->|ACK| LL
+    Q -.->|ACK| OO
+    Q -.->|ACK| RR
+    P -.->|NAK| JJ
+    P -.->|NAK| MM
+    P -.->|NAK| PP
+    P -.->|NAK| SS
+    
+    classDef lisProcess fill:#d1f0ff,stroke:#0077b6,stroke-width:2px;
+    classDef analyzerProcess fill:#ffe8d6,stroke:#bc6c25,stroke-width:2px;
+    classDef database fill:#d8f3dc,stroke:#2d6a4f,stroke-width:2px;
+    classDef decision fill:#f8edeb,stroke:#9d8189,stroke-width:2px;
+    
+    class A,B,C,E,F,G,I,J,M,N,Q,R,T,U,V,W lisProcess;
+    class AA,BB,CC,DD,HH,KK,NN,QQ,TT,UU analyzerProcess;
+    class DB database;
+    class D,H,K,L,O,S,EE,FF,II,LL,OO,RR decision;

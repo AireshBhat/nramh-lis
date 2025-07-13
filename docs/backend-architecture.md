@@ -1,338 +1,390 @@
-# Laboratory Information System - Backend Architecture
+# Lab Machine Middleware System - Technical Documentation
 
-## Overview
+## 📋 Project Overview
 
-This document outlines the backend technical architecture for the Laboratory Information System (LIS) built using Tauri and Rust. The backend is designed with a layered, modular approach, following the system structure depicted in the `rust-core-architecture.mermaid` diagram. It emphasizes clear separation of concerns, robust data flow, and extensibility for laboratory and hospital integration.
+The Lab Machine Middleware System is a Tauri-based desktop application that serves as a universal bridge between laboratory equipment and Hospital Information Systems (HIS). The system handles multiple communication protocols (ASTM, HL7 v2.4) and transport methods (Serial, TCP/IP) to provide seamless integration with various lab machines.
 
-## Technology Stack
+### 🎯 Core Objectives
+- **Universal Compatibility**: Support ASTM and HL7 protocols for different lab machines
+- **Real-time Processing**: Immediate processing and forwarding of lab results
+- **Fault Tolerance**: Robust error handling and automatic retry mechanisms
+- **Configuration Management**: Easy setup and management of multiple lab machines
+- **Monitoring & Observability**: Comprehensive logging and metrics collection
 
-- **Desktop Framework**: Tauri
-- **Backend Language**: Rust
-- **Database**: SQLite (via SQLx)
-- **Async Runtime**: Tokio
-- **Serialization**: Serde
-- **Plugin System**: Tauri Plugins
+## 🏗️ System Architecture
 
-## Layered Architecture
+The system follows a layered architecture pattern that promotes separation of concerns, maintainability, and scalability. Each layer has specific responsibilities and communicates through well-defined interfaces.
 
-### 1. API Command Layer
+### Layer Breakdown
 
-Handles all commands invoked from the frontend or external systems via Tauri's command API.
+#### 1. User Layer 👩‍⚕️
+**Purpose**: Defines the different types of users interacting with the system.
 
+- **Lab Technician**: Primary operator managing day-to-day machine operations
+- **Doctor/Clinician**: Views results and system status
+- **System Administrator**: Configures machines and manages system settings
+- **QC Operator**: Handles quality control processes and calibration
+
+#### 2. Frontend Layer 🖥️
+**Technology**: Tauri with React/Vue.js frontend
+**Purpose**: Provides intuitive user interfaces for different user roles.
+
+**Components**:
+- **Tauri Desktop App**: Main application interface
+- **Real-time Dashboard**: Live monitoring of machine status and results
+- **Configuration Interface**: Machine setup and parameter management
+
+#### 3. API Layer 📋
+**Technology**: Tauri Command System (Rust backend exposed to frontend)
+**Purpose**: Provides a clean interface between frontend and backend services.
+
+**Modules**:
 ```rust
-// src-tauri/src/lib.rs
-pub mod handlers;
+// Core API endpoints
+#[tauri::command]
+async fn start_machine(machine_id: String) -> Result<(), String>
 
 #[tauri::command]
-pub fn greet(name: &str) -> String {
-    format!("Hello, {}!", name)
-}
+async fn get_machine_status(machine_id: String) -> Result<MachineStatus, String>
 
-// Register commands
-pub fn run() {
-    tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![
-            greet,
-            handlers::ip_handler::get_local_ip,
-            // ...other commands
-        ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
-}
+#[tauri::command]
+async fn get_recent_results(limit: u32) -> Result<Vec<TestResult>, String>
+
+#[tauri::command]
+async fn update_machine_config(config: MachineConfig) -> Result<(), String>
 ```
 
-### 2. Service Orchestration Layer
+#### 4. Service Layer ⚙️
+**Technology**: Rust with async/await and tokio runtime
+**Purpose**: Core business logic and orchestration.
 
-Coordinates business logic for device management, data queries, configuration, system status, and uploads.
+**Services**:
 
+##### Machine Manager
 ```rust
-// src/services/device_orchestration.rs
-pub struct DeviceOrchestrationService;
+pub struct MachineManager {
+    machines: HashMap<String, Arc<LabMachine>>,
+    config_manager: Arc<ConfigManager>,
+    event_bus: mpsc::Sender<SystemEvent>,
+}
+```
+- Manages lifecycle of connected lab machines
+- Handles machine registration and deregistration
+- Coordinates state transitions and error recovery
 
-impl DeviceOrchestrationService {
-    pub async fn manage_device(&self, device_id: &str) {
-        // Orchestrate device actions
+##### Result Processor
+```rust
+pub struct ResultProcessor {
+    validators: Vec<Box<dyn ResultValidator>>,
+    enrichers: Vec<Box<dyn ResultEnricher>>,
+    formatters: HashMap<String, Box<dyn ResultFormatter>>,
+}
+```
+- Validates incoming lab results
+- Enriches data with metadata and context
+- Formats results for different output targets
+
+##### Configuration Manager
+```rust
+pub struct ConfigManager {
+    config_path: PathBuf,
+    validators: Vec<Box<dyn ConfigValidator>>,
+    watchers: Vec<tokio::sync::watch::Receiver<ConfigChange>>,
+}
+```
+- Manages JSON-based configuration storage
+- Provides configuration validation and hot-reload
+- Handles machine-specific parameter management
+
+##### Monitoring Service
+```rust
+pub struct MonitoringService {
+    metrics_collector: Arc<MetricsCollector>,
+    health_checker: Arc<HealthChecker>,
+    alert_manager: Arc<AlertManager>,
+}
+```
+- Collects system performance metrics
+- Performs periodic health checks
+- Manages alerting and notification systems
+
+#### 5. Protocol Layer 📡
+**Technology**: Rust with custom protocol implementations
+**Purpose**: Handles lab machine-specific communication protocols.
+
+**Protocol Handlers**:
+
+##### ASTM Handler (MERIL AutoQuant)
+```rust
+pub struct AstmHandler {
+    checksum_validation: bool,
+    timeout_settings: TimeoutConfig,
+    frame_parser: AstmFrameParser,
+}
+```
+- Implements ASTM E1381-02 and E1394-97 standards
+- Handles three-phase communication (Establishment, Transfer, Termination)
+- Manages checksum validation and error correction
+
+##### HL7 Handler (Afinion 2, BF-6500)
+```rust
+pub struct Hl7Handler {
+    version: Hl7Version,
+    segment_parsers: HashMap<String, Box<dyn SegmentParser>>,
+    message_builder: Hl7MessageBuilder,
+}
+```
+- Implements HL7 v2.4 standard
+- Supports ORU^R01 (results) and OUL^R21 (quality control) messages
+- Handles MSH, PID, PV1, OBR, OBX segments
+
+##### Message Parser
+```rust
+pub trait MessageParser {
+    async fn parse(&self, raw_data: &[u8]) -> Result<ParsedMessage, ParseError>;
+    async fn serialize(&self, message: &ParsedMessage) -> Result<Vec<u8>, SerializeError>;
+    fn get_protocol_type(&self) -> ProtocolType;
+}
+```
+- Protocol-agnostic message parsing interface
+- Enables easy addition of new protocols
+- Provides consistent error handling across protocols
+
+#### 6. Transport Layer 🔌
+**Technology**: Rust with tokio-serial and tokio networking
+**Purpose**: Manages physical communication with lab machines.
+
+**Transport Modules**:
+
+##### Serial Connection
+```rust
+pub struct SerialConnection {
+    port: tokio_serial::SerialStream,
+    settings: SerialSettings,
+    read_buffer: Vec<u8>,
+    write_queue: VecDeque<Vec<u8>>,
+}
+```
+- RS-232 serial communication
+- Configurable baud rates, parity, and flow control
+- Automatic port detection and configuration
+
+##### TCP/IP Connection
+```rust
+pub struct TcpConnection {
+    stream: tokio::net::TcpStream,
+    address: SocketAddr,
+    keepalive_settings: KeepaliveConfig,
+    reconnect_strategy: ReconnectStrategy,
+}
+```
+- Network-based communication
+- Connection pooling and management
+- Automatic reconnection with exponential backoff
+
+##### Connection Pool
+```rust
+pub struct ConnectionPool {
+    connections: HashMap<String, Arc<dyn Connection>>,
+    health_monitor: HealthMonitor,
+    load_balancer: LoadBalancer,
+}
+```
+- Manages multiple simultaneous connections
+- Provides connection health monitoring
+- Implements connection reuse and lifecycle management
+
+#### 7. Data Layer 💾
+**Technology**: JSON for configuration, in-memory structures for runtime data
+**Purpose**: Manages data persistence and caching.
+
+**Data Stores**:
+
+##### Configuration Store
+```json
+{
+  "machines": [
+    {
+      "id": "meril-001",
+      "name": "MERIL AutoQuant Lab 1",
+      "protocol": "ASTM",
+      "transport": {
+        "type": "Serial",
+        "port": "/dev/ttyUSB0",
+        "baud_rate": 9600,
+        "parity": "None"
+      },
+      "settings": {
+        "checksum_validation": true,
+        "timeout_ms": 5000,
+        "retry_attempts": 3
+      }
     }
+  ],
+  "system": {
+    "log_level": "INFO",
+    "max_concurrent_connections": 10,
+    "result_buffer_size": 1000
+  }
 }
 ```
 
-### 3. Protocol Processing Layer
-
-Handles ASTM and HL7 protocol parsing and validation.
-
+##### Result Buffer
 ```rust
-// src/protocol/astm.rs
-pub struct AstmProtocolHandler;
-
-impl AstmProtocolHandler {
-    pub fn parse_message(&self, raw: &str) -> Result<ParsedMessage, ProtocolError> {
-        // Dummy parse logic
-        Ok(ParsedMessage {})
-    }
+pub struct ResultBuffer {
+    buffer: VecDeque<LabResult>,
+    max_size: usize,
+    persistence_strategy: PersistenceStrategy,
 }
 ```
+- In-memory circular buffer for recent results
+- Configurable size and eviction policies
+- Optional persistence for critical results
 
-### 4. Connection Management Layer
-
-Manages TCP/IP and Serial connections to laboratory devices.
-
+##### Metrics Store
 ```rust
-// src/connection/tcp.rs
-pub struct TcpConnectionManager;
-
-impl TcpConnectionManager {
-    pub async fn listen(&self, port: u16) {
-        // Listen for device messages
-    }
+pub struct MetricsStore {
+    counters: HashMap<String, AtomicU64>,
+    gauges: HashMap<String, AtomicF64>,
+    histograms: HashMap<String, Histogram>,
 }
 ```
+- Real-time performance metrics
+- Machine-specific statistics
+- System health indicators
 
-### 5. Message Processing Pipeline
+#### 8. Integration Layer 🌐
+**Technology**: HTTP clients, file system APIs
+**Purpose**: Interfaces with external systems and services.
 
-Processes, validates, and transforms incoming messages.
+**Integration Modules**:
 
+##### HIS Adapter
 ```rust
-// src/message/processing.rs
-pub struct MessageParser;
-pub struct MessageValidator;
-pub struct MessageTransformer;
-
-impl MessageParser {
-    pub fn parse(&self, data: &[u8]) -> Result<ParsedData, ParseError> {
-        // Dummy parse
-        Ok(ParsedData {})
-    }
+pub struct HisAdapter {
+    client: reqwest::Client,
+    endpoint_config: HisEndpointConfig,
+    authentication: AuthenticationStrategy,
 }
 ```
+- HTTP/HTTPS integration with hospital systems
+- Configurable authentication (API keys, OAuth, etc.)
+- Automatic retry and error handling
 
-### 6. Data Processing Layer
-
-Resolves and processes patient, sample, and result data.
-
+##### File Exporter
 ```rust
-// src/data/processor.rs
-pub struct DataProcessor;
-
-impl DataProcessor {
-    pub async fn process(&self, data: ParsedData) -> Result<(), DataError> {
-        // Dummy processing
-        Ok(())
-    }
+pub struct FileExporter {
+    export_formats: HashMap<String, Box<dyn ExportFormat>>,
+    output_directory: PathBuf,
+    filename_template: String,
 }
 ```
+- CSV, JSON, and XML export capabilities
+- Configurable output formatting
+- Scheduled and on-demand exports
 
-### 7. Repository Abstraction Layer
+## 🔄 Data Flow
 
-Implements the repository pattern for all core entities.
+### 1. Machine Connection Flow
+```
+Machine → Transport Layer → Protocol Layer → Service Layer → API Layer → Frontend
+```
 
+### 2. Result Processing Flow
+```
+Lab Result → Protocol Parser → Result Processor → Validation → Enrichment → 
+Integration Layer → HIS/Export → Notification
+```
+
+### 3. Configuration Flow
+```
+Frontend → API Layer → Configuration Manager → JSON Store → 
+Machine Manager → Protocol Handlers → Transport Layer
+```
+
+## 🛠️ Technology Stack
+
+### Backend (Rust)
+- **Tauri**: Desktop application framework
+- **Tokio**: Async runtime and networking
+- **Serde**: Serialization/deserialization
+- **tokio-serial**: Serial port communication
+- **reqwest**: HTTP client for HIS integration
+- **tracing**: Structured logging and instrumentation
+
+### Frontend
+- **React/Vue.js**: UI framework (configurable)
+- **TypeScript**: Type-safe JavaScript
+- **Tailwind CSS**: Utility-first styling
+- **Chart.js/D3.js**: Data visualization
+
+### Configuration & Data
+- **JSON**: Configuration file format
+- **In-memory structures**: Runtime data storage
+- **File system**: Log and export storage
+
+## 📊 Monitoring & Observability
+
+### Metrics Collection
+- **Machine Metrics**: Connection status, message throughput, error rates
+- **System Metrics**: Memory usage, CPU utilization, disk I/O
+- **Business Metrics**: Results processed, successful transmissions, SLA compliance
+
+### Logging Strategy
 ```rust
-// src/storage/traits.rs
-#[async_trait]
-pub trait Repository<T> {
-    async fn create(&self, entity: &T) -> Result<(), RepoError>;
-    async fn find_by_id(&self, id: &str) -> Result<Option<T>, RepoError>;
-    // ...
-}
-```
-
-### 8. Data Persistence Layer
-
-Persists data to SQLite using SQLx.
-
-```rust
-// src/storage/sqlite.rs
-pub struct SqliteRepository {
-    pool: SqlitePool,
-}
-
-impl SqliteRepository {
-    pub async fn new(database_url: &str) -> Result<Self, sqlx::Error> {
-        let pool = SqlitePool::connect(database_url).await?;
-        Ok(Self { pool })
-    }
-}
-```
-
-### 9. Event System
-
-Publishes device, data, error, and system events.
-
-```rust
-// src/event/mod.rs
-pub enum EventType {
-    Device,
-    Data,
-    Error,
-    System,
-}
-
-pub struct EventSystem;
-
-impl EventSystem {
-    pub fn publish(&self, event: EventType, payload: &str) {
-        // Dummy publish
-    }
-}
-```
-
-### 10. Cross-Cutting Concerns
-
-#### Logging
-```rust
-// src/logging.rs
-pub struct LoggingService;
-
-impl LoggingService {
-    pub fn log(&self, message: &str) {
-        // Dummy log
-    }
-}
-```
-
-#### Error Handling
-```rust
-// src/model/error.rs
-#[derive(Debug)]
-pub enum ModelError {
-    NotFound,
-    DatabaseError,
-    // ...
-}
-```
-
-#### Configuration
-```rust
-// src/config.rs
-pub struct ConfigurationManager;
-
-impl ConfigurationManager {
-    pub fn get(&self, key: &str) -> Option<String> {
-        // Dummy config
-        None
-    }
-}
-```
-
-#### Caching
-```rust
-// src/cache.rs
-pub struct CacheManager;
-
-impl CacheManager {
-    pub fn get(&self, key: &str) -> Option<String> {
-        // Dummy cache
-        None
-    }
-}
-```
-
-### 11. External Integration
-
-Handles communication with Hospital Information Systems (HIS) and upload management.
-
-```rust
-// src/integration/his.rs
-pub struct HisUploadService;
-
-impl HisUploadService {
-    pub async fn upload(&self, data: &str) -> Result<(), UploadError> {
-        // Dummy upload
-        Ok(())
-    }
-}
-```
-
-### 12. Health Monitoring
-
-Monitors device, system, and database health.
-
-```rust
-// src/monitoring/health.rs
-pub struct HealthCheckService;
-
-impl HealthCheckService {
-    pub async fn check(&self) -> HealthStatus {
-        // Dummy health check
-        HealthStatus::Ok
-    }
-}
-
-pub enum HealthStatus {
-    Ok,
-    Warning,
-    Critical,
-}
-```
-
-## Database Schema (SQLite)
-
-```sql
--- analyzers table
-CREATE TABLE analyzers (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    model TEXT NOT NULL,
-    serial_number TEXT,
-    manufacturer TEXT,
-    connection_type TEXT NOT NULL,
-    ip_address TEXT,
-    port INTEGER,
-    protocol TEXT NOT NULL,
-    status TEXT NOT NULL,
-    activate_on_start BOOLEAN NOT NULL DEFAULT 0,
-    created_at DATETIME NOT NULL,
-    updated_at DATETIME NOT NULL
-);
-
--- patients table
-CREATE TABLE patients (
-    id TEXT PRIMARY KEY,
-    last_name TEXT,
-    first_name TEXT,
-    middle_name TEXT,
-    birth_date DATETIME,
-    sex TEXT NOT NULL,
-    created_at DATETIME NOT NULL,
-    updated_at DATETIME NOT NULL
-);
-
--- test_results table
-CREATE TABLE test_results (
-    id TEXT PRIMARY KEY,
-    test_id TEXT NOT NULL,
-    sample_id TEXT NOT NULL,
-    value TEXT NOT NULL,
-    units TEXT,
-    reference_range_lower REAL,
-    reference_range_upper REAL,
-    status TEXT NOT NULL,
-    completed_date_time DATETIME,
-    analyzer_id TEXT,
-    created_at DATETIME NOT NULL,
-    updated_at DATETIME NOT NULL
-);
-
--- upload_status table
-CREATE TABLE upload_status (
-    id TEXT PRIMARY KEY,
-    result_id TEXT NOT NULL,
-    external_system_id TEXT NOT NULL,
-    status TEXT NOT NULL,
-    retry_count INTEGER NOT NULL DEFAULT 0,
-    created_at DATETIME NOT NULL,
-    updated_at DATETIME NOT NULL
+// Structured logging with context
+tracing::info!(
+    machine_id = %machine.id,
+    protocol = %machine.protocol,
+    result_count = results.len(),
+    "Successfully processed lab results"
 );
 ```
 
-## Patterns and Best Practices
+### Health Checks
+- **Connectivity**: Periodic ping to lab machines
+- **Protocol Validation**: Test message exchange
+- **Resource Monitoring**: Memory and CPU usage checks
+- **Dependency Health**: HIS endpoint availability
 
-- **Repository Pattern** for all data access
-- **Service Layer** for orchestration and business logic
-- **Protocol Handlers** for ASTM/HL7
-- **Event System** for decoupled communication
-- **Health Monitoring** for observability
-- **Cross-cutting**: Logging, Error Handling, Config, Caching
+## 🔒 Error Handling & Resilience
 
----
+### Error Categories
+1. **Transport Errors**: Connection failures, timeouts
+2. **Protocol Errors**: Invalid messages, checksum failures
+3. **Validation Errors**: Data format or range violations
+4. **Integration Errors**: HIS communication failures
 
-This backend architecture ensures modularity, maintainability, and extensibility for laboratory data processing and integration with external systems. 
+### Resilience Patterns
+- **Circuit Breaker**: Prevent cascading failures
+- **Retry with Backoff**: Automatic error recovery
+- **Graceful Degradation**: Continue operation with reduced functionality
+- **Bulkhead Pattern**: Isolate failures between machines
+
+## 🚀 Scalability Considerations
+
+### Horizontal Scaling
+- Multiple machine support through connection pooling
+- Async processing prevents blocking operations
+- Modular architecture enables feature addition
+
+### Performance Optimization
+- Connection reuse and pooling
+- Efficient message parsing with zero-copy techniques
+- Configurable buffer sizes and batch processing
+
+### Resource Management
+- Bounded queues prevent memory exhaustion
+- Configurable worker thread pools
+- Automatic cleanup of stale connections
+
+## 🔧 Configuration Management
+
+### Machine Configuration
+Each lab machine requires specific configuration including protocol settings, transport parameters, and validation rules. The system supports hot-reload of configuration changes without requiring application restart.
+
+### System Configuration
+Global settings control application behavior, resource limits, and integration endpoints. Configuration validation ensures system stability and prevents invalid settings.
+
+### Environment-Specific Settings
+Support for development, staging, and production configurations with environment variable overrides and secure credential management.

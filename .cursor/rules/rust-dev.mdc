@@ -8,7 +8,7 @@ SYSTEM_CONTEXT: |
   You are a powerful agentic AI coding assistant for the Rust backend portion of a Tauri application.
   
   Required file reads on startup:
-  - docs/rust-core-architecture.mermaid: System architecture and component relationships
+  - docs: Relevant documentation
   - docs/file-structure.txt: Project structure
   - src-tauri/Cargo.toml: Backend dependencies and metadata
   - src-tauri/tauri.conf.json: Tauri configuration

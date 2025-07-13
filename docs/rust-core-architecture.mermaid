@@ -1,178 +1,152 @@
-graph TD
-    %% External Interfaces
-    FE[Frontend Next.js] -->|invoke| API[Tauri Command API Layer]
-    DEV[Laboratory Devices] -->|ASTM/HL7 Messages| CONN[Connection Layer]
-    HIS[Hospital Information System] -->|REST API| HTTP[HTTP Client Layer]
-    
-    %% API Command Layer
-    API --> CMD1[Device Management Commands]
-    API --> CMD2[Data Query Commands] 
-    API --> CMD3[Configuration Commands]
-    API --> CMD4[System Status Commands]
-    API --> CMD5[Upload Management Commands]
-    
-    %% Service Orchestration Layer
-    CMD1 --> DOS[Device Orchestration Service]
-    CMD2 --> DQS[Data Query Service]
-    CMD3 --> CS[Configuration Service]
-    CMD4 --> SMS[System Monitoring Service]
-    CMD5 --> UMS[Upload Management Service]
-    
-    %% Protocol Processing Layer
-    DOS --> PM[Protocol Manager]
-    PM --> ASTM[ASTM Protocol Handler]
-    PM --> HL7[HL7 Protocol Handler]
-    
-    %% Connection Management Layer
-    ASTM --> CONN
-    HL7 --> CONN
-    CONN --> TCP[TCP/IP Connection Manager]
-    CONN --> SERIAL[Serial Connection Manager]
-    
-    %% Message Processing Pipeline
-    TCP --> ML[Message Listener]
-    SERIAL --> ML
-    ML --> MP[Message Parser]
-    MP --> MV[Message Validator]
-    MV --> MT[Message Transformer]
-    
-    %% Data Processing Layer
-    MT --> DP[Data Processor]
-    DP --> PR[Patient Resolver]
-    DP --> SR[Sample Resolver]
-    DP --> RR[Result Resolver]
-    
-    %% Repository Abstraction Layer
-    PR --> REPO[Repository Manager]
-    SR --> REPO
-    RR --> REPO
-    DQS --> REPO
-    
-    REPO --> AR[Analyzer Repository]
-    REPO --> PAR[Patient Repository]
-    REPO --> TRR[Test Result Repository]
-    REPO --> SAR[Sample Repository]
-    REPO --> UR[Upload Repository]
-    REPO --> SET[Settings Repository]
-    
-    %% Data Persistence Layer
-    AR --> DB[(SQLite Database)]
-    PAR --> DB
-    TRR --> DB
-    SAR --> DB
-    UR --> DB
-    SET --> DB
-    
-    %% Event System
-    DP --> ES[Event System]
-    ES --> EVT1[Device Events]
-    ES --> EVT2[Data Events]
-    ES --> EVT3[Error Events]
-    ES --> EVT4[System Events]
-    
-    %% Cross-Cutting Concerns
-    LOG[Logging Service] -.-> DOS
-    LOG -.-> PM
-    LOG -.-> ML
-    LOG -.-> DP
-    
-    ERR[Error Handler] -.-> API
-    ERR -.-> PM
-    ERR -.-> CONN
-    ERR -.-> DP
-    
-    CFG[Configuration Manager] -.-> PM
-    CFG -.-> CONN
-    CFG -.-> REPO
-    
-    CACHE[Cache Manager] -.-> REPO
-    CACHE -.-> DQS
-    
-    %% External Integration
-    UMS --> HTTP
-    HTTP --> UPLOAD[Upload Processor]
-    UPLOAD --> RETRY[Retry Manager]
-    
-    %% Health Monitoring
-    SMS --> HEALTH[Health Check Service]
-    HEALTH --> DEV_HEALTH[Device Health Monitor]
-    HEALTH --> SYS_HEALTH[System Health Monitor]
-    HEALTH --> DB_HEALTH[Database Health Monitor]
-    
-    %% Styling - API Layer
-    style API fill:#e1f5fe,stroke:#01579b,stroke-width:3px
-    style CMD1 fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
-    style CMD2 fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
-    style CMD3 fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
-    style CMD4 fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
-    style CMD5 fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
-    
-    %% Service Layer
-    style DOS fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
-    style DQS fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
-    style CS fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
-    style SMS fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
-    style UMS fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
-    
-    %% Protocol Layer
-    style PM fill:#f3e5f5,stroke:#7b1fa2,stroke-width:3px
-    style ASTM fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px
-    style HL7 fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px
-    
-    %% Connection Layer
-    style CONN fill:#fce4ec,stroke:#c2185b,stroke-width:3px
-    style TCP fill:#ffebee,stroke:#d32f2f,stroke-width:2px
-    style SERIAL fill:#ffebee,stroke:#d32f2f,stroke-width:2px
-    
-    %% Message Processing
-    style ML fill:#e0f2f1,stroke:#00695c,stroke-width:2px
-    style MP fill:#e0f2f1,stroke:#00695c,stroke-width:2px
-    style MV fill:#e0f2f1,stroke:#00695c,stroke-width:2px
-    style MT fill:#e0f2f1,stroke:#00695c,stroke-width:2px
-    
-    %% Data Processing
-    style DP fill:#fff8e1,stroke:#ff8f00,stroke-width:3px
-    style PR fill:#f1f8e9,stroke:#558b2f,stroke-width:2px
-    style SR fill:#f1f8e9,stroke:#558b2f,stroke-width:2px
-    style RR fill:#f1f8e9,stroke:#558b2f,stroke-width:2px
-    
-    %% Repository Layer
-    style REPO fill:#fafafa,stroke:#424242,stroke-width:3px
-    style AR fill:#f5f5f5,stroke:#616161,stroke-width:1px
-    style PAR fill:#f5f5f5,stroke:#616161,stroke-width:1px
-    style TRR fill:#f5f5f5,stroke:#616161,stroke-width:1px
-    style SAR fill:#f5f5f5,stroke:#616161,stroke-width:1px
-    style UR fill:#f5f5f5,stroke:#616161,stroke-width:1px
-    style SET fill:#f5f5f5,stroke:#616161,stroke-width:1px
-    
-    %% Database
-    style DB fill:#e0e0e0,stroke:#212121,stroke-width:4px
-    
-    %% Event System
-    style ES fill:#e8f5e8,stroke:#4caf50,stroke-width:3px
-    style EVT1 fill:#f1f8e9,stroke:#689f38,stroke-width:1px
-    style EVT2 fill:#f1f8e9,stroke:#689f38,stroke-width:1px
-    style EVT3 fill:#f1f8e9,stroke:#689f38,stroke-width:1px
-    style EVT4 fill:#f1f8e9,stroke:#689f38,stroke-width:1px
-    
-    %% Cross-cutting Concerns
-    style LOG fill:#fff3e0,stroke:#ff9800,stroke-width:2px,stroke-dasharray: 5 5
-    style ERR fill:#ffebee,stroke:#f44336,stroke-width:2px,stroke-dasharray: 5 5
-    style CFG fill:#e3f2fd,stroke:#2196f3,stroke-width:2px,stroke-dasharray: 5 5
-    style CACHE fill:#f3e5f5,stroke:#9c27b0,stroke-width:2px,stroke-dasharray: 5 5
-    
-    %% External Integration
-    style HTTP fill:#e8f5e8,stroke:#4caf50,stroke-width:2px
-    style UPLOAD fill:#f1f8e9,stroke:#689f38,stroke-width:2px
-    style RETRY fill:#f1f8e9,stroke:#689f38,stroke-width:2px
-    
-    %% Health Monitoring
-    style HEALTH fill:#e0f7fa,stroke:#00acc1,stroke-width:2px
-    style DEV_HEALTH fill:#e0f2f1,stroke:#26a69a,stroke-width:1px
-    style SYS_HEALTH fill:#e0f2f1,stroke:#26a69a,stroke-width:1px
-    style DB_HEALTH fill:#e0f2f1,stroke:#26a69a,stroke-width:1px
-    
-    %% External Systems
-    style FE fill:#ff9999,stroke:#333,stroke-width:3px
-    style DEV fill:#ff9999,stroke:#333,stroke-width:3px
-    style HIS fill:#ff9999,stroke:#333,stroke-width:3px
+flowchart TD
+  %%========================
+  %% LAYERS
+  %%========================
+  subgraph L1[User Layer 👩‍⚕️]
+    LAB_TECH[Lab Technician]
+    DOCTOR[Doctor / Clinician]
+    ADMIN[System Administrator]
+    QC_OPERATOR[QC Operator]
+  end
+
+  subgraph L2[Frontend Layer 🖥️]
+    TAURI_UI[Tauri Desktop App<br/>↳ React/Vue Frontend]
+    DASHBOARD[Real-time Dashboard<br/>↳ Machine Status & Results]
+    CONFIG_UI[Configuration Interface<br/>↳ Machine Setup & Settings]
+  end
+
+  subgraph L3[API Layer 📋]
+    TAURI_CMDS[Tauri Command Handlers<br/>↳ IPC Bridge to Backend]
+    MACHINE_API[Machine Control API<br/>↳ Start/Stop/Configure]
+    RESULTS_API[Results Processing API<br/>↳ Receive & Forward Results]
+    STATUS_API[System Status API<br/>↳ Health & Metrics]
+  end
+
+  subgraph L4[Service Layer ⚙️]
+    MACHINE_MGR[Machine Manager<br/>↳ Lifecycle & State Management]
+    RESULT_PROC[Result Processor<br/>↳ Data Validation & Enrichment]
+    CONFIG_MGR[Configuration Manager<br/>↳ Settings & Validation]
+    MONITOR_SVC[Monitoring Service<br/>↳ Health Checks & Metrics]
+  end
+
+  subgraph L5[Protocol Layer 📡]
+    ASTM_HANDLER[ASTM Protocol Handler<br/>↳ MERIL AutoQuant Support]
+    HL7_HANDLER[HL7 v2.4 Handler<br/>↳ Afinion/BF-6500 Support]
+    MSG_PARSER[Message Parser<br/>↳ Protocol-Agnostic Interface]
+    ACK_MGR[Acknowledgment Manager<br/>↳ Response Handling]
+  end
+
+  subgraph L6[Transport Layer 🔌]
+    SERIAL_CONN[Serial Connection<br/>↳ RS-232 Communication]
+    TCP_CONN[TCP/IP Connection<br/>↳ Network Communication]
+    CONN_POOL[Connection Pool<br/>↳ Multiple Machine Support]
+    RETRY_MGR[Retry Manager<br/>↳ Fault Tolerance]
+  end
+
+  subgraph L7[Data Layer 💾]
+    CONFIG_STORE[Configuration Store<br/>↳ JSON File Storage]
+    RESULT_BUFFER[Result Buffer<br/>↳ In-Memory Queue]
+    LOG_STORE[Logging Store<br/>↳ Structured Logs]
+    METRICS_STORE[Metrics Store<br/>↳ Performance Data]
+  end
+
+  subgraph L8[Integration Layer 🌐]
+    HIS_ADAPTER[HIS Adapter<br/>↳ Hospital System Interface]
+    FILE_EXPORT[File Exporter<br/>↳ CSV/JSON Export]
+    WEBHOOK_SVC[Webhook Service<br/>↳ Real-time Notifications]
+  end
+
+  %%========================
+  %% INTERACTIONS
+  %%========================
+
+  %% User → Frontend
+  LAB_TECH --> TAURI_UI
+  DOCTOR --> DASHBOARD
+  ADMIN --> CONFIG_UI
+  QC_OPERATOR --> TAURI_UI
+
+  %% Frontend → API
+  TAURI_UI --> TAURI_CMDS
+  DASHBOARD --> STATUS_API
+  CONFIG_UI --> MACHINE_API
+
+  %% API → Services
+  TAURI_CMDS --> MACHINE_MGR
+  MACHINE_API --> MACHINE_MGR
+  RESULTS_API --> RESULT_PROC
+  STATUS_API --> MONITOR_SVC
+
+  %% Services → Protocol
+  MACHINE_MGR --> MSG_PARSER
+  RESULT_PROC --> ASTM_HANDLER
+  RESULT_PROC --> HL7_HANDLER
+  MSG_PARSER --> ACK_MGR
+
+  %% Protocol → Transport
+  ASTM_HANDLER --> SERIAL_CONN
+  HL7_HANDLER --> TCP_CONN
+  MSG_PARSER --> CONN_POOL
+  ACK_MGR --> RETRY_MGR
+
+  %% Transport → Data
+  CONN_POOL --> RESULT_BUFFER
+  RETRY_MGR --> LOG_STORE
+  SERIAL_CONN --> METRICS_STORE
+  TCP_CONN --> METRICS_STORE
+
+  %% Services → Data
+  CONFIG_MGR --> CONFIG_STORE
+  MONITOR_SVC --> METRICS_STORE
+  RESULT_PROC --> RESULT_BUFFER
+
+  %% Data → Integration
+  RESULT_BUFFER --> HIS_ADAPTER
+  CONFIG_STORE --> FILE_EXPORT
+  METRICS_STORE --> WEBHOOK_SVC
+
+  %% Integration → External
+  HIS_ADAPTER -.->|HTTPS| EXTERNAL_HIS[Hospital Information System]
+  FILE_EXPORT -.->|Files| EXTERNAL_STORAGE[File System]
+  WEBHOOK_SVC -.->|HTTP| EXTERNAL_WEBHOOK[External Services]
+
+  %%========================
+  %% MACHINE CONNECTIONS
+  %%========================
+  subgraph MACHINES[Lab Machines 🧪]
+    MERIL[MERIL AutoQuant<br/>↳ ASTM via Serial]
+    AFINION[Afinion 2<br/>↳ HL7 via TCP/IP]
+    BF6500[BF-6500<br/>↳ HL7 via TCP/IP]
+    GENERIC[Generic Machine<br/>↳ Configurable Protocol]
+  end
+
+  %% Machine Connections
+  MERIL -->|RS-232| SERIAL_CONN
+  AFINION -->|TCP/IP| TCP_CONN
+  BF6500 -->|TCP/IP| TCP_CONN
+  GENERIC -->|Configurable| CONN_POOL
+
+  %%========================
+  %% STYLING
+  %%========================
+  classDef user fill:#FDE68A,stroke:#CA8A04,stroke-width:2px
+  classDef frontend fill:#BFDBFE,stroke:#2563EB,stroke-width:2px
+  classDef api fill:#D1FAE5,stroke:#10B981,stroke-width:2px
+  classDef service fill:#E0E7FF,stroke:#6366F1,stroke-width:2px
+  classDef protocol fill:#FCE7F3,stroke:#DB2777,stroke-width:2px
+  classDef transport fill:#F0FDFA,stroke:#14B8A6,stroke-width:2px
+  classDef data fill:#FEF3C7,stroke:#F59E0B,stroke-width:2px
+  classDef integration fill:#E2E8F0,stroke:#64748B,stroke-width:2px
+  classDef machine fill:#ECFDF5,stroke:#059669,stroke-width:3px
+  classDef external fill:#FDF2F8,stroke:#EC4899,stroke-width:2px,stroke-dasharray: 5 5
+
+  class LAB_TECH,DOCTOR,ADMIN,QC_OPERATOR user
+  class TAURI_UI,DASHBOARD,CONFIG_UI frontend
+  class TAURI_CMDS,MACHINE_API,RESULTS_API,STATUS_API api
+  class MACHINE_MGR,RESULT_PROC,CONFIG_MGR,MONITOR_SVC service
+  class ASTM_HANDLER,HL7_HANDLER,MSG_PARSER,ACK_MGR protocol
+  class SERIAL_CONN,TCP_CONN,CONN_POOL,RETRY_MGR transport
+  class CONFIG_STORE,RESULT_BUFFER,LOG_STORE,METRICS_STORE data
+  class HIS_ADAPTER,FILE_EXPORT,WEBHOOK_SVC integration
+  class MERIL,AFINION,BF6500,GENERIC machine
+  class EXTERNAL_HIS,EXTERNAL_STORAGE,EXTERNAL_WEBHOOK external
