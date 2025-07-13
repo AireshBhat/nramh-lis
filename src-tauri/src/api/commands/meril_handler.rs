@@ -90,11 +90,11 @@ fn validate_meril_config(analyzer: &Analyzer) -> Result<(), String> {
 /// Returns the current analyzer configuration managed by the AutoQuantMeril service
 #[tauri::command]
 pub async fn fetch_meril_config<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> MerilConfigResponse {
-    // Get the service from AppData
-    let service = app.state::<std::sync::Arc<crate::services::autoquant_meril::AutoQuantMerilService<R>>>();
+    // Get the AppState from AppData
+    let app_state = app.state::<crate::app_state::AppState<R>>();
     
     // Get analyzer config from service
-    let analyzer = service.get_analyzer_config();
+    let analyzer = app_state.get_autoquant_meril_service().get_analyzer_config();
     
     log::info!("Successfully fetched Meril configuration from service for analyzer: {}", analyzer.id);
     
@@ -177,9 +177,10 @@ pub async fn update_meril_config<R: tauri::Runtime>(app: tauri::AppHandle<R>, an
 /// Gets the status of the AutoQuantMeril service
 #[tauri::command]
 pub async fn get_meril_service_status<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<MerilServiceStatus, String> {
-    // Get the service from AppData
-    let service = app.state::<std::sync::Arc<crate::services::autoquant_meril::AutoQuantMerilService<R>>>();
+    // Get the AppState from AppData
+    let app_state = app.state::<crate::app_state::AppState<R>>();
     
+    let service = app_state.get_autoquant_meril_service();
     let status = service.get_status().await;
     let connections_count = service.get_connections_count().await;
     let is_running = status == AnalyzerStatus::Active;
@@ -194,8 +195,8 @@ pub async fn get_meril_service_status<R: tauri::Runtime>(app: tauri::AppHandle<R
 /// Starts the AutoQuantMeril service
 #[tauri::command]
 pub async fn start_meril_service<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
-    // Get the service from AppData
-    let _service = app.state::<std::sync::Arc<crate::services::autoquant_meril::AutoQuantMerilService<R>>>();
+    // Get the AppState from AppData
+    let _app_state = app.state::<crate::app_state::AppState<R>>();
     
     // Note: In a real implementation, you'd need to get a mutable reference
     // For now, we'll just log that the command was received
@@ -210,8 +211,8 @@ pub async fn start_meril_service<R: tauri::Runtime>(app: tauri::AppHandle<R>) ->
 /// Stops the AutoQuantMeril service
 #[tauri::command]
 pub async fn stop_meril_service<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
-    // Get the service from AppData
-    let service = app.state::<std::sync::Arc<crate::services::autoquant_meril::AutoQuantMerilService<R>>>();
+    // Get the AppState from AppData
+    let _app_state = app.state::<crate::app_state::AppState<R>>();
     
     // Note: In a real implementation, you'd need to get a mutable reference
     // For now, we'll just log that the command was received

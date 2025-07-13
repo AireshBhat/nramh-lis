@@ -3,6 +3,7 @@ use tauri::async_runtime::block_on;
 use crate::services::setup;
 
 pub mod api;
+pub mod app_state;
 pub mod migrations;
 pub mod models;
 pub mod services;
@@ -34,7 +35,7 @@ pub fn run() {
         // )
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
-            block_on(setup(app.handle().clone())).map_err(|e| {
+            let _ = block_on(setup(app.handle().clone())).map_err(|e| {
                 log::error!("Error initializing application: {}", e);
                 e
             });
