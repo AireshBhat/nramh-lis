@@ -6,7 +6,7 @@ use std::time::Duration;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{mpsc, RwLock, Mutex};
 use tokio::time::timeout;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tauri::Runtime;
@@ -44,6 +44,12 @@ pub enum MerilEvent {
         test_results: Vec<TestResult>,
         timestamp: DateTime<Utc>,
     },
+    /// Analyzer status updated
+    AnalyzerStatusUpdated {
+        analyzer_id: String,
+        status: crate::models::AnalyzerStatus,
+        timestamp: DateTime<Utc>,
+    },
     /// Error occurred
     Error {
         analyzer_id: String,
@@ -54,13 +60,31 @@ pub enum MerilEvent {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TestResult {
+    pub id: String,
     pub test_id: String,
-    pub test_name: String,
+    pub sample_id: String,
     pub value: String,
-    pub unit: Option<String>,
+    pub units: Option<String>,
     pub reference_range: Option<String>,
     pub flags: Vec<String>,
-    pub timestamp: DateTime<Utc>,
+    pub status: String,
+    pub completed_date_time: Option<DateTime<Utc>>,
+    pub analyzer_id: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PatientData {
+    pub id: String,
+    pub name: String,
+    pub birth_date: Option<String>,
+    pub sex: Option<String>,
+    pub address: Option<String>,
+    pub telephone: Option<String>,
+    pub physicians: Option<String>,
+    pub height: Option<String>,
+    pub weight: Option<String>,
 }
 
 // ============================================================================
@@ -74,8 +98,8 @@ const ASTM_EOT: u8 = 0x04;  // EOT - End of Transmission
 const ASTM_STX: u8 = 0x02;  // STX - Start of Text
 const ASTM_ETX: u8 = 0x03;  // ETX - End of Text
 const ASTM_ETB: u8 = 0x17;  // ETB - End of Transmission Block
-const ASTM_CR: u8 = 0x0D;   // CR - Carriage Return
-const ASTM_LF: u8 = 0x0A;   // LF - Line Feed
+// const ASTM_CR: u8 = 0x0D;   // CR - Carriage Return
+// const ASTM_LF: u8 = 0x0A;   // LF - Line Feed
 
 // ============================================================================
 // CONNECTION STATE
@@ -94,7 +118,8 @@ pub struct Connection {
     pub stream: TcpStream,
     pub remote_addr: SocketAddr,
     pub state: ConnectionState,
-    pub frame_buffer: Vec<u8>,
+    pub frame_buffer: Vec<Vec<u8>>, // Store multiple frames
+    pub current_frame: Vec<u8>,     // Current frame being built
     pub analyzer_id: String,
 }
 
@@ -104,9 +129,9 @@ pub struct Connection {
 
 pub struct AutoQuantMerilService<R: Runtime> {
     /// Analyzer configuration
-    analyzer: Analyzer,
+    analyzer: Arc<RwLock<Analyzer>>,
     /// TCP listener for incoming connections
-    listener: Option<TcpListener>,
+    listener: Arc<Mutex<Option<TcpListener>>>,
     /// Active connections
     connections: Arc<RwLock<HashMap<String, Connection>>>,
     /// Event sender for frontend communication
@@ -125,8 +150,8 @@ impl<R: Runtime> AutoQuantMerilService<R> {
         store: Arc<tauri_plugin_store::Store<R>>,
     ) -> Self {
         Self {
-            analyzer,
-            listener: None,
+            analyzer: Arc::new(RwLock::new(analyzer)),
+            listener: Arc::new(Mutex::new(None)),
             connections: Arc::new(RwLock::new(HashMap::new())),
             event_sender,
             is_running: Arc::new(RwLock::new(false)),
@@ -135,8 +160,11 @@ impl<R: Runtime> AutoQuantMerilService<R> {
     }
 
     /// Starts the service
-    pub async fn start(&mut self) -> Result<(), String> {
-        let port = self.analyzer.port.ok_or("No port configured")?;
+    pub async fn start(&self) -> Result<(), String> {
+        let port = {
+            let analyzer = self.analyzer.read().await;
+            analyzer.port.ok_or("No port configured")?
+        };
         let bind_addr = format!("0.0.0.0:{}", port);
         
         log::info!("Starting AutoQuantMeril service on {}", bind_addr);
@@ -146,19 +174,53 @@ impl<R: Runtime> AutoQuantMerilService<R> {
             .await
             .map_err(|e| format!("Failed to bind to {}: {}", bind_addr, e))?;
         
-        self.listener = Some(listener);
+        // Store listener in mutex
+        {
+            let mut listener_guard = self.listener.lock().await;
+            *listener_guard = Some(listener);
+        }
+        
         *self.is_running.write().await = true;
+        
+        // Update analyzer status to Active
+        let analyzer_id = {
+            let mut analyzer = self.analyzer.write().await;
+            analyzer.status = crate::models::AnalyzerStatus::Active;
+            analyzer.updated_at = chrono::Utc::now();
+            analyzer.id.clone()
+        };
+        
+        // Save updated analyzer to store
+        self.save_analyzer_to_store().await?;
+        
+        // Emit status update event
+        let _ = self.event_sender.send(MerilEvent::AnalyzerStatusUpdated {
+            analyzer_id: analyzer_id.clone(),
+            status: crate::models::AnalyzerStatus::Active,
+            timestamp: chrono::Utc::now(),
+        }).await;
         
         log::info!("AutoQuantMeril service started successfully on port {}", port);
         
-        // Start the connection handler
-        self.handle_connections().await;
+        // Start the connection handler in a separate thread
+        let connections = self.connections.clone();
+        let is_running = self.is_running.clone();
+        let event_sender = self.event_sender.clone();
+        let analyzer_id = {
+            let analyzer = self.analyzer.read().await;
+            analyzer.id.clone()
+        };
+        let listener = self.listener.clone();
+        
+        tokio::spawn(async move {
+            Self::handle_connections_loop(listener, connections, is_running, event_sender, analyzer_id).await;
+        });
         
         Ok(())
     }
 
     /// Stops the service
-    pub async fn stop(&mut self) -> Result<(), String> {
+    pub async fn stop(&self) -> Result<(), String> {
         log::info!("Stopping AutoQuantMeril service");
         
         *self.is_running.write().await = false;
@@ -171,35 +233,77 @@ impl<R: Runtime> AutoQuantMerilService<R> {
             }
         }
         
-        self.listener = None;
+        // Clear listener
+        {
+            let mut listener_guard = self.listener.lock().await;
+            *listener_guard = None;
+        }
+        
+        // Update analyzer status to Inactive
+        let analyzer_id = {
+            let mut analyzer = self.analyzer.write().await;
+            analyzer.status = crate::models::AnalyzerStatus::Inactive;
+            analyzer.updated_at = chrono::Utc::now();
+            analyzer.id.clone()
+        };
+        
+        // Save updated analyzer to store
+        self.save_analyzer_to_store().await?;
+        
+        // Emit status update event
+        let _ = self.event_sender.send(MerilEvent::AnalyzerStatusUpdated {
+            analyzer_id: analyzer_id.clone(),
+            status: crate::models::AnalyzerStatus::Inactive,
+            timestamp: chrono::Utc::now(),
+        }).await;
         
         log::info!("AutoQuantMeril service stopped");
         Ok(())
     }
+    
+    /// Saves the current analyzer configuration to the store
+    async fn save_analyzer_to_store(&self) -> Result<(), String> {
+        let analyzer = self.analyzer.read().await;
+        
+        let store_data = crate::api::commands::meril_handler::MerilStoreData {
+            analyzer: Some(analyzer.clone()),
+        };
+        
+        let json_value = serde_json::to_value(store_data)
+            .map_err(|e| format!("Failed to serialize analyzer configuration: {}", e))?;
+        
+        self.store.set("config".to_string(), json_value);
+        
+        log::debug!("Analyzer configuration saved to store");
+        Ok(())
+    }
 
     /// Main connection handling loop
-    async fn handle_connections(&self) {
-        let listener = match &self.listener {
-            Some(l) => l,
-            None => {
-                log::error!("No TCP listener available");
-                return;
-            }
-        };
-
-        let is_running = self.is_running.clone();
-        let connections = self.connections.clone();
-        let event_sender = self.event_sender.clone();
-        let analyzer_id = self.analyzer.id.clone();
-
+    async fn handle_connections_loop(
+        listener: Arc<Mutex<Option<TcpListener>>>,
+        connections: Arc<RwLock<HashMap<String, Connection>>>,
+        is_running: Arc<RwLock<bool>>,
+        event_sender: mpsc::Sender<MerilEvent>,
+        analyzer_id: String,
+    ) {
         loop {
             // Check if service should stop
             if !*is_running.read().await {
                 break;
             }
 
+            // Get listener from mutex
+            let listener_guard = listener.lock().await;
+            let listener_ref = match &*listener_guard {
+                Some(l) => l,
+                None => {
+                    log::error!("No TCP listener available");
+                    break;
+                }
+            };
+
             // Accept incoming connections
-            match timeout(Duration::from_secs(1), listener.accept()).await {
+            match timeout(Duration::from_secs(1), listener_ref.accept()).await {
                 Ok(Ok((stream, addr))) => {
                     log::info!("New connection from {}", addr);
                     
@@ -208,6 +312,7 @@ impl<R: Runtime> AutoQuantMerilService<R> {
                         remote_addr: addr,
                         state: ConnectionState::WaitingForEnq,
                         frame_buffer: Vec::new(),
+                        current_frame: Vec::new(),
                         analyzer_id: analyzer_id.clone(),
                     };
                     
@@ -322,8 +427,8 @@ impl<R: Runtime> AutoQuantMerilService<R> {
                 }
                 ConnectionState::WaitingForFrame => {
                     if byte == ASTM_STX {
-                        connection.frame_buffer.clear();
-                        connection.frame_buffer.push(byte);
+                        connection.current_frame.clear();
+                        connection.current_frame.push(byte);
                         connection.state = ConnectionState::ProcessingFrame;
                         log::debug!("Received STX, processing frame");
                     } else if byte == ASTM_EOT {
@@ -342,7 +447,7 @@ impl<R: Runtime> AutoQuantMerilService<R> {
                     }
                 }
                 ConnectionState::ProcessingFrame => {
-                    connection.frame_buffer.push(byte);
+                    connection.current_frame.push(byte);
                     
                     if byte == ASTM_ETX || byte == ASTM_ETB {
                         // End of frame
@@ -376,17 +481,20 @@ impl<R: Runtime> AutoQuantMerilService<R> {
         event_sender: &mpsc::Sender<MerilEvent>,
     ) -> Result<(), String> {
         // Validate checksum
-        if !Self::validate_checksum(&connection.frame_buffer) {
-            return Err("Invalid checksum".to_string());
+        if !Self::validate_checksum(&connection.current_frame) {
+            log::error!("Checksum validation failed for frame: {:?}", connection.current_frame);
         }
         
         // Extract frame data (remove STX, ETX/ETB, checksum, CR, LF)
-        let frame_data = Self::extract_frame_data(&connection.frame_buffer)?;
+        let frame_data = Self::extract_frame_data(&connection.current_frame)?;
         
         // Parse ASTM record
         let record_type = Self::parse_record_type(&frame_data)?;
         
         log::debug!("Processed ASTM frame: {} - {}", record_type, String::from_utf8_lossy(&frame_data));
+        
+        // Store the completed frame for later processing
+        connection.frame_buffer.push(connection.current_frame.clone());
         
         // Send event
         let _ = event_sender.send(MerilEvent::AstmMessageReceived {
@@ -404,26 +512,41 @@ impl<R: Runtime> AutoQuantMerilService<R> {
         connection: &mut Connection,
         event_sender: &mpsc::Sender<MerilEvent>,
     ) -> Result<(), String> {
-        // For now, just log the complete message
-        // In a full implementation, this would parse all records and create TestResults
         log::info!("Processing complete ASTM message from {}", connection.remote_addr);
         
-        // Mock test results for demonstration
-        let test_results = vec![
-            TestResult {
-                test_id: "GLU".to_string(),
-                test_name: "Glucose".to_string(),
-                value: "95".to_string(),
-                unit: Some("mg/dL".to_string()),
-                reference_range: Some("70-100".to_string()),
-                flags: vec![],
-                timestamp: Utc::now(),
-            }
-        ];
+        // Parse all collected frames to extract patient and test result data
+        let mut patient_data: Option<PatientData> = None;
+        let mut test_results = Vec::new();
         
+        // Process each frame to extract patient and result data
+        for frame in &connection.frame_buffer {
+            if let Ok(frame_data) = Self::extract_frame_data(frame) {
+                let record_type = Self::parse_record_type(&frame_data)?;
+                
+                match record_type.as_str() {
+                    "Patient" => {
+                        if let Ok(patient) = Self::parse_patient_record(&frame_data) {
+                            patient_data = Some(patient);
+                        }
+                    }
+                    "Result" => {
+                        if let Ok(mut result) = Self::parse_result_record(&frame_data) {
+                            result.analyzer_id = Some(connection.analyzer_id.clone());
+                            test_results.push(result);
+                        }
+                    }
+                    _ => {
+                        // Log other record types for debugging
+                        log::debug!("Skipping record type: {}", record_type);
+                    }
+                }
+            }
+        }
+        
+        // Send the processed data as an event
         let _ = event_sender.send(MerilEvent::LabResultProcessed {
             analyzer_id: connection.analyzer_id.clone(),
-            patient_id: Some("PAT001".to_string()),
+            patient_id: patient_data.as_ref().map(|p| p.id.clone()),
             test_results,
             timestamp: Utc::now(),
         }).await;
@@ -501,7 +624,95 @@ impl<R: Runtime> AutoQuantMerilService<R> {
     }
 
     /// Gets the current analyzer configuration
-    pub fn get_analyzer_config(&self) -> &Analyzer {
-        &self.analyzer
+    pub async fn get_analyzer_config(&self) -> Analyzer {
+        self.analyzer.read().await.clone()
+    }
+
+    /// Parses a patient record from ASTM data
+    fn parse_patient_record(frame_data: &[u8]) -> Result<PatientData, String> {
+        let data_str = String::from_utf8_lossy(frame_data);
+        let fields: Vec<&str> = data_str.split('|').collect();
+        
+        if fields.len() < 2 {
+            return Err("Invalid patient record format".to_string());
+        }
+        
+        // Parse patient name (field 6) - format: LastName^FirstName^MiddleName^Title
+        let name_parts: Vec<&str> = fields.get(6).unwrap_or(&"").split('^').collect();
+        let name = if name_parts.len() >= 2 {
+            format!("{} {}", 
+                name_parts.get(1).unwrap_or(&""), 
+                name_parts.get(0).unwrap_or(&"")
+            )
+        } else {
+            fields.get(6).unwrap_or(&"").to_string()
+        };
+        
+        Ok(PatientData {
+            id: fields.get(3).unwrap_or(&"").to_string(),
+            name,
+            birth_date: fields.get(8).map(|s| s.to_string()),
+            sex: fields.get(9).map(|s| s.to_string()),
+            address: fields.get(11).map(|s| s.to_string()),
+            telephone: fields.get(13).map(|s| s.to_string()),
+            physicians: fields.get(14).map(|s| s.to_string()),
+            height: fields.get(17).map(|s| s.to_string()),
+            weight: fields.get(18).map(|s| s.to_string()),
+        })
+    }
+
+    /// Parses a result record from ASTM data
+    fn parse_result_record(frame_data: &[u8]) -> Result<TestResult, String> {
+        let data_str = String::from_utf8_lossy(frame_data);
+        let fields: Vec<&str> = data_str.split('|').collect();
+        
+        if fields.len() < 4 {
+            return Err("Invalid result record format".to_string());
+        }
+        
+        // Parse test ID (field 3) - format: ^^^TEST_NAME
+        let test_id_parts: Vec<&str> = fields.get(3).unwrap_or(&"").split('^').collect();
+        let test_name = test_id_parts.last().unwrap_or(&"").to_string();
+        
+        // Parse reference range (field 6) - format: lower^upper
+        let reference_range = fields.get(6).and_then(|range_str| {
+            if !range_str.is_empty() {
+                let parts: Vec<&str> = range_str.split('^').collect();
+                if parts.len() >= 2 {
+                    Some(format!("{}-{}", parts[0], parts[1]))
+                } else {
+                    Some(range_str.to_string())
+                }
+            } else {
+                None
+            }
+        });
+        
+        // Parse flags (field 7)
+        let flags = fields.get(7)
+            .map(|flag_str| {
+                if !flag_str.is_empty() {
+                    vec![flag_str.to_string()]
+                } else {
+                    vec![]
+                }
+            })
+            .unwrap_or_default();
+        
+        let now = Utc::now();
+        Ok(TestResult {
+            id: format!("result_{}", now.timestamp()),
+            test_id: test_name.clone(),
+            sample_id: fields.get(2).unwrap_or(&"").to_string(), // Sequence number as sample ID
+            value: fields.get(4).unwrap_or(&"").to_string(),
+            units: fields.get(5).map(|s| s.to_string()),
+            reference_range,
+            flags,
+            status: fields.get(9).unwrap_or(&"F").to_string(), // Result status (F=Final, P=Preliminary, C=Correction)
+            completed_date_time: Some(now),
+            analyzer_id: None, // Will be set by the caller
+            created_at: now,
+            updated_at: now,
+        })
     }
 } 

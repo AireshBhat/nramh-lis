@@ -9,7 +9,10 @@ pub async fn setup<R: tauri::Runtime>(app: AppHandle<R>) -> Result<(), String> {
         .map_err(|e| format!("Error getting store: {}", e))?;
 
     // Initialize AppState with AutoQuantMeril service
-    let app_state = AppState::<R>::new(app.clone(), meril_store)?;
+    let mut app_state = AppState::<R>::new(app.clone(), meril_store)?;
+    
+    // Initialize the AppState (handles async operations like auto-starting services)
+    app_state.initialize().await?;
     
     // Store AppState in AppData for global access
     app.manage(app_state);

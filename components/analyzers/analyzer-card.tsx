@@ -1,16 +1,17 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Monitor, Wifi, AlertCircle, CheckCircle, Wrench, Play } from 'lucide-react';
+import { Monitor, Wifi, AlertCircle, CheckCircle, Wrench, Play, Square } from 'lucide-react';
 import { Analyzer } from '@/lib/types';
 
 interface AnalyzerCardProps {
   analyzer: Analyzer;
   onStatusChange?: () => void;
   onStart?: () => Promise<void>;
+  onStop?: () => Promise<void>;
 }
 
-export function AnalyzerCard({ analyzer, onStatusChange, onStart }: AnalyzerCardProps) {
+export function AnalyzerCard({ analyzer, onStatusChange, onStart, onStop }: AnalyzerCardProps) {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'Active':
@@ -42,6 +43,19 @@ export function AnalyzerCard({ analyzer, onStatusChange, onStart }: AnalyzerCard
         }
       } catch (error) {
         console.error('Failed to start analyzer:', error);
+      }
+    }
+  };
+
+  const handleStop = async () => {
+    if (onStop) {
+      try {
+        await onStop();
+        if (onStatusChange) {
+          onStatusChange();
+        }
+      } catch (error) {
+        console.error('Failed to stop analyzer:', error);
       }
     }
   };
@@ -104,6 +118,20 @@ export function AnalyzerCard({ analyzer, onStatusChange, onStart }: AnalyzerCard
             >
               <Play className="h-4 w-4 mr-2" />
               Start Service
+            </Button>
+          </div>
+        )}
+
+        {onStop && analyzer.status.status === 'Active' && (
+          <div className="pt-2">
+            <Button 
+              onClick={handleStop}
+              className="w-full"
+              size="sm"
+              variant="destructive"
+            >
+              <Square className="h-4 w-4 mr-2" />
+              Stop Service
             </Button>
           </div>
         )}

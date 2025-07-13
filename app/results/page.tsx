@@ -14,8 +14,11 @@ import {
   Clock
 } from 'lucide-react';
 import { mockTestResults } from '@/lib/mock-data';
+import { useTestResults } from '@/hooks/use-test-results';
 
 export default function TestResultsPage() {
+  const { latestResults, allResults, clearResults } = useTestResults();
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'Final':

@@ -1,10 +1,9 @@
 use crate::models::{Analyzer, ConnectionType, AnalyzerStatus, Protocol};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tauri_plugin_store::StoreExt;
 use std::net::IpAddr;
-use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MerilConfigResponse {
@@ -32,30 +31,10 @@ fn validate_ip_address(ip: &str) -> bool {
 
 /// Validates port number (1-65535)
 fn validate_port(port: u16) -> bool {
-    port > 0 && port <= 65535
+    port > 0
 }
 
-/// Creates default Meril AutoQuant configuration
-fn create_default_meril_config() -> Analyzer {
-    let now = Utc::now();
-    Analyzer {
-        id: Uuid::new_v4().to_string(),
-        name: "AutoQuant".to_string(),
-        model: "200i".to_string(),
-        serial_number: None,
-        manufacturer: Some("Meril Diagnostics PVT LTD".to_string()),
-        connection_type: ConnectionType::TcpIp,
-        ip_address: None,
-        port: None,
-        com_port: None, // None for TCP/IP
-        baud_rate: None, // None for TCP/IP
-        protocol: Protocol::Astm,
-        status: AnalyzerStatus::Inactive, // "offline" maps to Inactive
-        activate_on_start: false,
-        created_at: now,
-        updated_at: now,
-    }
-}
+// Removed unused function - using AppState::create_default_meril_analyzer instead
 
 /// Validates Meril analyzer configuration
 fn validate_meril_config(analyzer: &Analyzer) -> Result<(), String> {
@@ -94,13 +73,13 @@ pub async fn fetch_meril_config<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> 
     let app_state = app.state::<crate::app_state::AppState<R>>();
     
     // Get analyzer config from service
-    let analyzer = app_state.get_autoquant_meril_service().get_analyzer_config();
+    let analyzer = app_state.get_autoquant_meril_service().get_analyzer_config().await;
     
     log::info!("Successfully fetched Meril configuration from service for analyzer: {}", analyzer.id);
     
     MerilConfigResponse {
         success: true,
-        analyzer: Some(analyzer.clone()),
+        analyzer: Some(analyzer),
         error_message: None,
     }
 }
@@ -196,32 +175,76 @@ pub async fn get_meril_service_status<R: tauri::Runtime>(app: tauri::AppHandle<R
 #[tauri::command]
 pub async fn start_meril_service<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
     // Get the AppState from AppData
-    let _app_state = app.state::<crate::app_state::AppState<R>>();
+    let app_state = app.state::<crate::app_state::AppState<R>>();
     
-    // Note: In a real implementation, you'd need to get a mutable reference
-    // For now, we'll just log that the command was received
-    log::info!("Start Meril service command received");
+    // Note: We need mutable access to start the service
+    // For now, we'll use a workaround by cloning the service and starting it
+    let service = app_state.get_autoquant_meril_service().clone();
     
-    // TODO: Implement actual service start logic
-    // This would require restructuring to allow mutable access to the service
+    log::info!("Starting Meril service...");
     
-    Ok(())
+    // Start the service
+    match service.start().await {
+        Ok(()) => {
+            log::info!("Meril service started successfully");
+            
+            // Emit event to frontend
+            let _ = app.emit("meril:service-started", serde_json::json!({
+                "timestamp": chrono::Utc::now()
+            }));
+            
+            Ok(())
+        }
+        Err(e) => {
+            log::error!("Failed to start Meril service: {}", e);
+            
+            // Emit error event to frontend
+            let _ = app.emit("meril:service-error", serde_json::json!({
+                "error": e.clone(),
+                "timestamp": chrono::Utc::now()
+            }));
+            
+            Err(e)
+        }
+    }
 }
 
 /// Stops the AutoQuantMeril service
 #[tauri::command]
 pub async fn stop_meril_service<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
     // Get the AppState from AppData
-    let _app_state = app.state::<crate::app_state::AppState<R>>();
+    let app_state = app.state::<crate::app_state::AppState<R>>();
     
-    // Note: In a real implementation, you'd need to get a mutable reference
-    // For now, we'll just log that the command was received
-    log::info!("Stop Meril service command received");
+    // Note: We need mutable access to stop the service
+    // For now, we'll use a workaround by cloning the service and stopping it
+    let service = app_state.get_autoquant_meril_service().clone();
     
-    // TODO: Implement actual service stop logic
-    // This would require restructuring to allow mutable access to the service
+    log::info!("Stopping Meril service...");
     
-    Ok(())
+    // Stop the service
+    match service.stop().await {
+        Ok(()) => {
+            log::info!("Meril service stopped successfully");
+            
+            // Emit event to frontend
+            let _ = app.emit("meril:service-stopped", serde_json::json!({
+                "timestamp": chrono::Utc::now()
+            }));
+            
+            Ok(())
+        }
+        Err(e) => {
+            log::error!("Failed to stop Meril service: {}", e);
+            
+            // Emit error event to frontend
+            let _ = app.emit("meril:service-error", serde_json::json!({
+                "error": e.clone(),
+                "timestamp": chrono::Utc::now()
+            }));
+            
+            Err(e)
+        }
+    }
 }
 
 #[cfg(test)]

@@ -28,3 +28,6 @@ out/*
 
 .env
 *.env
+
+**/node_modules
+scripts/

@@ -55,4 +55,9 @@ export const fetchMerilConfig = async (): Promise<MerilConfigResponse> => {
 // Start Meril service command
 export const startMerilService = async (): Promise<void> => {
   return invoke('start_meril_service');
+};
+
+// Stop Meril service command
+export const stopMerilService = async (): Promise<void> => {
+  return invoke('stop_meril_service');
 }; 

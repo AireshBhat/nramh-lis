@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Runtime};
 use tokio::sync::mpsc;
+use tokio::task::JoinHandle;
 
 use crate::services::autoquant_meril::AutoQuantMerilService;
 use crate::models::Analyzer;
@@ -8,6 +9,7 @@ use crate::models::Analyzer;
 /// Central application state manager
 pub struct AppState<R: Runtime> {
     autoquant_meril_service: Arc<AutoQuantMerilService<R>>,
+    service_handle: Option<JoinHandle<Result<(), String>>>,
 }
 
 impl<R: Runtime> AppState<R> {
@@ -58,9 +60,24 @@ impl<R: Runtime> AppState<R> {
             Self::handle_meril_events(app_handle_clone, event_receiver).await;
         });
         
-        Ok(Self {
+        let app_state = Self {
             autoquant_meril_service: service,
-        })
+            service_handle: None,
+        };
+        
+        Ok(app_state)
+    }
+    
+    /// Initializes the AppState (called after creation to handle async operations)
+    pub async fn initialize(&mut self) -> Result<(), String> {
+        // Auto-start service if configured
+        let analyzer_config = self.autoquant_meril_service.get_analyzer_config().await;
+        if analyzer_config.activate_on_start {
+            log::info!("Auto-starting Meril service due to activate_on_start=true");
+            self.start_meril_service_internal().await?;
+        }
+        
+        Ok(())
     }
     
     /// Gets a reference to the AutoQuantMeril service
@@ -68,10 +85,66 @@ impl<R: Runtime> AppState<R> {
         &self.autoquant_meril_service
     }
     
-    /// Gets a mutable reference to the AutoQuantMeril service
-    /// Note: This requires interior mutability or restructuring for actual mutable access
-    pub fn get_autoquant_meril_service_mut(&mut self) -> &mut Arc<AutoQuantMerilService<R>> {
-        &mut self.autoquant_meril_service
+    /// Starts the Meril service in a background thread
+    pub async fn start_meril_service_internal(&mut self) -> Result<(), String> {
+        // Check if service is already running
+        if self.service_handle.is_some() {
+            return Err("Service is already running".to_string());
+        }
+        
+        // Clone the service for the background thread
+        let service = self.autoquant_meril_service.clone();
+        
+        // Spawn the service in a background thread
+        let handle = tokio::spawn(async move {
+            service.start().await
+        });
+        
+        self.service_handle = Some(handle);
+        
+        log::info!("Meril service started successfully");
+        Ok(())
+    }
+    
+    /// Stops the Meril service and waits for thread completion
+    pub async fn stop_meril_service_internal(&mut self) -> Result<(), String> {
+        // Check if service is running
+        let handle = match &mut self.service_handle {
+            Some(h) => h,
+            None => return Err("Service is not running".to_string()),
+        };
+        
+        // Stop the service
+        let service = self.autoquant_meril_service.clone();
+        if let Err(e) = service.stop().await {
+            log::error!("Error stopping service: {}", e);
+        }
+        
+        // Wait for thread completion
+        match handle.await {
+            Ok(Ok(())) => {
+                log::info!("Meril service stopped successfully");
+                self.service_handle = None;
+                Ok(())
+            }
+            Ok(Err(e)) => {
+                log::error!("Service thread returned error: {}", e);
+                self.service_handle = None;
+                Err(e)
+            }
+            Err(e) => {
+                log::error!("Failed to join service thread: {}", e);
+                self.service_handle = None;
+                Err(format!("Thread join error: {}", e))
+            }
+        }
+    }
+    
+    /// Gets the service status
+    pub async fn get_service_status(&self) -> (bool, usize) {
+        let is_running = self.service_handle.is_some();
+        let connections_count = self.autoquant_meril_service.get_connections_count().await;
+        (is_running, connections_count)
     }
     
     /// Creates a default MERIL analyzer configuration
@@ -92,7 +165,7 @@ impl<R: Runtime> AppState<R> {
             baud_rate: None,
             protocol: crate::models::Protocol::Astm,
             status: crate::models::AnalyzerStatus::Inactive,
-            activate_on_start: false,
+            activate_on_start: false, // Don't auto-start by default
             created_at: Utc::now(),
             updated_at: Utc::now(),
         }
@@ -143,6 +216,16 @@ impl<R: Runtime> AppState<R> {
                         "analyzer_id": analyzer_id,
                         "patient_id": patient_id,
                         "test_results": test_results,
+                        "timestamp": timestamp
+                    }));
+                }
+                crate::services::autoquant_meril::MerilEvent::AnalyzerStatusUpdated { analyzer_id, status, timestamp } => {
+                    log::info!("Analyzer {} status updated to {:?}", analyzer_id, status);
+                    
+                    // Emit event to frontend
+                    let _ = app.emit("meril:analyzer-status-updated", serde_json::json!({
+                        "analyzer_id": analyzer_id,
+                        "status": status,
                         "timestamp": timestamp
                     }));
                 }

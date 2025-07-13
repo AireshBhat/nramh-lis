@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 
 export default function AnalyzersPage() {
   const { localIp, isLoading: ipLoading } = useLocalIp();
-  const { analyzer, loading, error, refreshAnalyzer, startService } = useMerilAnalyzer();
+  const { analyzer, loading, error, refreshAnalyzer, startService, stopService } = useMerilAnalyzer();
 
   const handleStatusChange = () => {
     refreshAnalyzer();
@@ -22,6 +22,14 @@ export default function AnalyzersPage() {
       await startService();
     } catch (error) {
       console.error('Failed to start service:', error);
+    }
+  };
+
+  const handleStopService = async () => {
+    try {
+      await stopService();
+    } catch (error) {
+      console.error('Failed to stop service:', error);
     }
   };
 
@@ -87,6 +95,7 @@ export default function AnalyzersPage() {
               analyzer={analyzer}
               onStatusChange={handleStatusChange}
               onStart={handleStartService}
+              onStop={handleStopService}
             />
           )}
         </div>
