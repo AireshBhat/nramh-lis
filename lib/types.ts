@@ -99,6 +99,7 @@ export interface TestResult {
   completedDateTime?: Date;
   metadata: TestResultMetadata;
   analyzerId?: string;
+  patientId: string;
   createdAt: Date;
   updatedAt: Date;
 }

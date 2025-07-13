@@ -62,9 +62,10 @@ pub fn get_test_results_migration() -> Migration {
                 sequence_number INTEGER NOT NULL,
                 instrument TEXT,
                 analyzer_id TEXT,
+                patient_id TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
-                FOREIGN KEY (analyzer_id) REFERENCES analyzers(id) ON DELETE SET NULL
+                FOREIGN KEY(patient_id) REFERENCES patients(id) ON DELETE RESTRICT ON UPDATE CASCADE
             );
             
             -- Create indexes for better query performance
@@ -75,6 +76,7 @@ pub fn get_test_results_migration() -> Migration {
             CREATE INDEX IF NOT EXISTS idx_test_results_analyzer_id ON test_results(analyzer_id);
             CREATE INDEX IF NOT EXISTS idx_test_results_completed_date_time ON test_results(completed_date_time);
             CREATE INDEX IF NOT EXISTS idx_test_results_created_at ON test_results(created_at);
+            CREATE INDEX IF NOT EXISTS idx_test_results_patient_id ON test_results(patient_id);
         "#,
         kind: MigrationKind::Up,
     }

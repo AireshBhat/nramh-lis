@@ -1,177 +1,448 @@
-import { useState, useEffect, useCallback } from 'react';
-import { listen } from '@tauri-apps/api/event';
-import { useToast } from '@/hooks/use-toast';
-import { Patient, TestResult, ReferenceRange } from '@/lib/types';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { TestResult } from '@/lib/types';
+import { TestResultRepository } from '@/lib/database/repositories/test-results';
+import { getDatabaseClient } from '@/lib/database/client';
+import { ValidationError, CreateTestResultDTO, UpdateTestResultDTO } from '@/lib/database/types';
 
-// Types for the lab result event payload from backend
-interface BackendPatientData {
-  id: string;
-  name: string;
-  birth_date?: string;
-  sex?: string;
-  address?: string;
-  telephone?: string;
-  physicians?: string;
-  height?: string;
-  weight?: string;
-}
-
-interface BackendTestResult {
-  id: string;
-  test_id: string;
-  sample_id: string;
-  value: string;
-  units?: string;
-  reference_range?: string;
-  flags: string[];
-  status: string;
-  completed_date_time?: string;
-  analyzer_id?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface LabResultEventPayload {
-  analyzer_id: string;
-  patient_id?: string;
-  patient_data?: BackendPatientData;
-  test_results: BackendTestResult[];
-  timestamp: string;
-}
-
-// Extended TestResult type for our hook that can handle both string and object reference ranges
-interface ExtendedTestResult extends Omit<TestResult, 'referenceRange'> {
-  referenceRange?: string | ReferenceRange;
+interface UseTestResultsOptions {
+  autoLoad?: boolean;
+  limit?: number;
 }
 
 interface UseTestResultsReturn {
-  latestResults: {
-    patientId?: string;
-    patientData?: BackendPatientData;
-    testResults: ExtendedTestResult[];
-    timestamp: Date;
-  } | null;
-  allResults: Array<{
-    patientId?: string;
-    patientData?: BackendPatientData;
-    testResults: ExtendedTestResult[];
-    timestamp: Date;
-  }>;
-  clearResults: () => void;
+  // Data
+  testResults: TestResult[];
+  testResult: TestResult | null;
+  loading: boolean;
+  error: string | null;
+  
+  // Statistics
+  statistics: {
+    total: number;
+    final: number;
+    preliminary: number;
+    correction: number;
+    abnormal: number;
+    today: number;
+  };
+  
+  // Actions
+  fetchTestResults: (options?: { limit?: number; offset?: number }) => Promise<void>;
+  getTestResult: (id: string) => Promise<TestResult | null>;
+  createTestResult: (data: CreateTestResultDTO) => Promise<TestResult>;
+  updateTestResult: (id: string, data: UpdateTestResultDTO) => Promise<TestResult>;
+  deleteTestResult: (id: string) => Promise<boolean>;
+  
+  // Specialized queries
+  findBySampleId: (sampleId: string) => Promise<TestResult[]>;
+  findByAnalyzerId: (analyzerId: string) => Promise<TestResult[]>;
+  findByDateRange: (startDate: Date, endDate: Date) => Promise<TestResult[]>;
+  findAbnormalResults: (limit?: number) => Promise<TestResult[]>;
+  findByStatus: (status: 'Correction' | 'Final' | 'Preliminary') => Promise<TestResult[]>;
+  findRecentResults: (hours?: number) => Promise<TestResult[]>;
+  batchInsert: (results: CreateTestResultDTO[]) => Promise<string[]>;
+  
+  // Utilities
+  clearError: () => void;
+  refresh: () => Promise<void>;
+  refreshStatistics: () => Promise<void>;
 }
 
-export function useTestResults(): UseTestResultsReturn {
-  const [latestResults, setLatestResults] = useState<UseTestResultsReturn['latestResults']>(null);
-  const [allResults, setAllResults] = useState<UseTestResultsReturn['allResults']>([]);
-  const { toast } = useToast();
+/**
+ * React hook for test result database operations
+ * Provides specialized functionality for managing laboratory test results
+ */
+export function useTestResults(options: UseTestResultsOptions = {}): UseTestResultsReturn {
+  const { autoLoad = true, limit = 100 } = options;
+  
+  // State
+  const [testResults, setTestResults] = useState<TestResult[]>([]);
+  const [testResult, setTestResult] = useState<TestResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [statistics, setStatistics] = useState({
+    total: 0,
+    final: 0,
+    preliminary: 0,
+    correction: 0,
+    abnormal: 0,
+    today: 0
+  });
 
-  const handleLabResults = useCallback((event: LabResultEventPayload) => {
-    console.log('🔬 New lab results received:', event);
-    
-    // Convert backend test results to frontend format
-    const convertedTestResults: ExtendedTestResult[] = event.test_results.map(backendResult => ({
-      id: backendResult.id,
-      testId: backendResult.test_id,
-      sampleId: backendResult.sample_id,
-      value: backendResult.value,
-      units: backendResult.units,
-      referenceRange: backendResult.reference_range || undefined,
-      flags: {
-        abnormalFlag: backendResult.flags[0] || undefined,
-        natureOfAbnormality: undefined,
-      },
-      status: backendResult.status as 'Correction' | 'Final' | 'Preliminary',
-      completedDateTime: backendResult.completed_date_time ? new Date(backendResult.completed_date_time) : undefined,
-      metadata: {
-        sequenceNumber: 0, // Could parse from sample_id if needed
-        instrument: undefined,
-      },
-      analyzerId: backendResult.analyzer_id,
-      createdAt: new Date(backendResult.created_at),
-      updatedAt: new Date(backendResult.updated_at),
-    }));
-    
-    const results = {
-      patientId: event.patient_id,
-      patientData: event.patient_data,
-      testResults: convertedTestResults,
-      timestamp: new Date(event.timestamp),
-    };
-
-    // Update latest results
-    setLatestResults(results);
-    
-    // Add to all results history
-    setAllResults(prev => [...prev, results]);
-
-    // Log detailed information
-    console.group('📊 Lab Results Details');
-    console.log('Analyzer ID:', event.analyzer_id);
-    console.log('Patient ID:', event.patient_id || 'Not provided');
-    
-    // Log patient details if available
-    if (event.patient_data) {
-      console.group('👤 Patient Details');
-      console.log('Name:', event.patient_data.name);
-      console.log('Birth Date:', event.patient_data.birth_date || 'Not provided');
-      console.log('Sex:', event.patient_data.sex || 'Not provided');
-      console.log('Address:', event.patient_data.address || 'Not provided');
-      console.log('Telephone:', event.patient_data.telephone || 'Not provided');
-      console.log('Physicians:', event.patient_data.physicians || 'Not provided');
-      console.log('Height:', event.patient_data.height || 'Not provided');
-      console.log('Weight:', event.patient_data.weight || 'Not provided');
-      console.groupEnd();
-    }
-    
-    console.log('Timestamp:', new Date(event.timestamp).toLocaleString());
-    console.log('Number of tests:', event.test_results.length);
-    
-    // Log each test result
-    event.test_results.forEach((test, index) => {
-      console.group(`🧪 Test ${index + 1}: ${test.test_id}`);
-      console.log('Test ID:', test.test_id);
-      console.log('Sample ID:', test.sample_id);
-      console.log('Value:', test.value);
-      console.log('Units:', test.units || 'N/A');
-      console.log('Reference Range:', test.reference_range || 'N/A');
-      console.log('Status:', test.status);
-      console.log('Flags:', test.flags || 'None');
-      console.log('Completed:', test.completed_date_time ? new Date(test.completed_date_time).toLocaleString() : 'N/A');
-      console.groupEnd();
-    });
-    console.groupEnd();
-
-    // Show toast notification
-    toast({
-      title: "New Test Results",
-      description: `Received ${event.test_results.length} test results${event.patient_id ? ` for patient ${event.patient_id}` : ''}`,
-      variant: "default",
-    });
-  }, [toast]);
-
-  const clearResults = useCallback(() => {
-    setLatestResults(null);
-    setAllResults([]);
-    console.log('🧹 Test results cleared');
+  // Repository instance
+  const repository = useMemo(() => {
+    const db = getDatabaseClient();
+    return new TestResultRepository(db);
   }, []);
 
-  // Listen for lab result events
+  /**
+   * Clear error state
+   */
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
+  /**
+   * Fetch test results with pagination
+   */
+  const fetchTestResults = useCallback(async (fetchOptions?: { limit?: number; offset?: number }) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const result = await repository.findAll({
+        limit: fetchOptions?.limit || limit,
+        offset: fetchOptions?.offset || 0,
+        orderBy: 'completed_date_time',
+        orderDirection: 'DESC'
+      });
+
+      setTestResults(result.data);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch test results';
+      setError(errorMessage);
+      console.error('Error fetching test results:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [repository, limit]);
+
+  /**
+   * Get a single test result by ID
+   */
+  const getTestResult = useCallback(async (id: string): Promise<TestResult | null> => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const foundTestResult = await repository.findById(id);
+      setTestResult(foundTestResult);
+      return foundTestResult;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to get test result';
+      setError(errorMessage);
+      console.error('Error getting test result:', err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [repository]);
+
+  /**
+   * Create a new test result
+   */
+  const createTestResult = useCallback(async (data: CreateTestResultDTO): Promise<TestResult> => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const newTestResult = await repository.create(data);
+      
+      // Add to the beginning of the list
+      setTestResults(prev => [newTestResult, ...prev]);
+      
+      // Refresh statistics
+      await refreshStatistics();
+
+      return newTestResult;
+    } catch (err) {
+      let errorMessage = 'Failed to create test result';
+      
+      if (err instanceof ValidationError) {
+        errorMessage = `${err.field}: ${err.message}`;
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
+      console.error('Error creating test result:', err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [repository]);
+
+  /**
+   * Update an existing test result
+   */
+  const updateTestResult = useCallback(async (id: string, data: UpdateTestResultDTO): Promise<TestResult> => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const updatedTestResult = await repository.update(id, data);
+      
+      // Update in the list
+      setTestResults(prev => prev.map(tr => tr.id === id ? updatedTestResult : tr));
+      
+      // Update single test result if it's the current one
+      if (testResult?.id === id) {
+        setTestResult(updatedTestResult);
+      }
+
+      return updatedTestResult;
+    } catch (err) {
+      let errorMessage = 'Failed to update test result';
+      
+      if (err instanceof ValidationError) {
+        errorMessage = `${err.field}: ${err.message}`;
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
+      console.error('Error updating test result:', err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [repository, testResult]);
+
+  /**
+   * Delete a test result
+   */
+  const deleteTestResult = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const success = await repository.delete(id);
+      
+      if (success) {
+        // Remove from the list
+        setTestResults(prev => prev.filter(tr => tr.id !== id));
+        
+        // Clear single test result if it's the deleted one
+        if (testResult?.id === id) {
+          setTestResult(null);
+        }
+        
+        // Refresh statistics
+        await refreshStatistics();
+      }
+
+      return success;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete test result';
+      setError(errorMessage);
+      console.error('Error deleting test result:', err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [repository, testResult]);
+
+  /**
+   * Find test results by sample ID
+   */
+  const findBySampleId = useCallback(async (sampleId: string): Promise<TestResult[]> => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const results = await repository.findBySampleId(sampleId);
+      setTestResults(results);
+      return results;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to find test results by sample ID';
+      setError(errorMessage);
+      console.error('Error finding test results by sample ID:', err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [repository]);
+
+  /**
+   * Find test results by analyzer ID
+   */
+  const findByAnalyzerId = useCallback(async (analyzerId: string): Promise<TestResult[]> => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const results = await repository.findByAnalyzerId(analyzerId, limit);
+      setTestResults(results);
+      return results;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to find test results by analyzer ID';
+      setError(errorMessage);
+      console.error('Error finding test results by analyzer ID:', err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [repository, limit]);
+
+  /**
+   * Find test results by date range
+   */
+  const findByDateRange = useCallback(async (startDate: Date, endDate: Date): Promise<TestResult[]> => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const results = await repository.findByDateRange(startDate, endDate, limit);
+      setTestResults(results);
+      return results;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to find test results by date range';
+      setError(errorMessage);
+      console.error('Error finding test results by date range:', err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [repository, limit]);
+
+  /**
+   * Find abnormal test results
+   */
+  const findAbnormalResults = useCallback(async (abnormalLimit: number = 50): Promise<TestResult[]> => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const results = await repository.findAbnormalResults(abnormalLimit);
+      setTestResults(results);
+      return results;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to find abnormal test results';
+      setError(errorMessage);
+      console.error('Error finding abnormal test results:', err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [repository]);
+
+  /**
+   * Find test results by status
+   */
+  const findByStatus = useCallback(async (status: 'Correction' | 'Final' | 'Preliminary'): Promise<TestResult[]> => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const results = await repository.findByStatus(status, limit);
+      setTestResults(results);
+      return results;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to find test results by status';
+      setError(errorMessage);
+      console.error('Error finding test results by status:', err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [repository, limit]);
+
+  /**
+   * Find recent test results
+   */
+  const findRecentResults = useCallback(async (hours: number = 24): Promise<TestResult[]> => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const results = await repository.findRecentResults(hours, limit);
+      setTestResults(results);
+      return results;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to find recent test results';
+      setError(errorMessage);
+      console.error('Error finding recent test results:', err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [repository, limit]);
+
+  /**
+   * Batch insert multiple test results
+   */
+  const batchInsert = useCallback(async (results: CreateTestResultDTO[]): Promise<string[]> => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const ids = await repository.batchInsert(results);
+      
+      // Refresh the list and statistics
+      await Promise.all([
+        fetchTestResults({ limit, offset: 0 }),
+        refreshStatistics()
+      ]);
+
+      return ids;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to batch insert test results';
+      setError(errorMessage);
+      console.error('Error batch inserting test results:', err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [repository, fetchTestResults, limit]);
+
+  /**
+   * Refresh statistics
+   */
+  const refreshStatistics = useCallback(async () => {
+    try {
+      const stats = await repository.getStatistics();
+      setStatistics(stats);
+    } catch (err) {
+      console.error('Error refreshing statistics:', err);
+    }
+  }, [repository]);
+
+  /**
+   * Refresh the current data
+   */
+  const refresh = useCallback(async () => {
+    await Promise.all([
+      fetchTestResults({ limit, offset: 0 }),
+      refreshStatistics()
+    ]);
+  }, [fetchTestResults, refreshStatistics, limit]);
+
+  // Auto-load test results and statistics on mount
   useEffect(() => {
-    const unlisten = listen('meril:lab-results', (event) => {
-      const payload = event.payload as LabResultEventPayload;
-      handleLabResults(payload);
-    });
-
-    console.log('🎧 Listening for lab results events...');
-
-    return () => {
-      unlisten.then(fn => fn());
-    };
-  }, [handleLabResults]);
+    if (autoLoad) {
+      refresh();
+    }
+  }, [autoLoad, refresh]);
 
   return {
-    latestResults,
-    allResults,
-    clearResults,
+    // Data
+    testResults,
+    testResult,
+    loading,
+    error,
+    
+    // Statistics
+    statistics,
+    
+    // Actions
+    fetchTestResults,
+    getTestResult,
+    createTestResult,
+    updateTestResult,
+    deleteTestResult,
+    
+    // Specialized queries
+    findBySampleId,
+    findByAnalyzerId,
+    findByDateRange,
+    findAbnormalResults,
+    findByStatus,
+    findRecentResults,
+    batchInsert,
+    
+    // Utilities
+    clearError,
+    refresh,
+    refreshStatistics,
   };
 } 
