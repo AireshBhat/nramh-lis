@@ -1,9 +1,9 @@
-use crate::models::{Analyzer, ConnectionType, AnalyzerStatus, Protocol};
+use crate::models::{Analyzer, AnalyzerStatus, ConnectionType, Protocol};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
+use std::net::IpAddr;
 use tauri::{Emitter, Manager};
 use tauri_plugin_store::StoreExt;
-use std::net::IpAddr;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MerilConfigResponse {
@@ -68,15 +68,23 @@ fn validate_meril_config(analyzer: &Analyzer) -> Result<(), String> {
 /// Fetches Meril AutoQuant configuration from the service
 /// Returns the current analyzer configuration managed by the AutoQuantMeril service
 #[tauri::command]
-pub async fn fetch_meril_config<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> MerilConfigResponse {
+pub async fn fetch_meril_config<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> MerilConfigResponse {
     // Get the AppState from AppData
     let app_state = app.state::<crate::app_state::AppState<R>>();
-    
+
     // Get analyzer config from service
-    let analyzer = app_state.get_autoquant_meril_service().get_analyzer_config().await;
-    
-    log::info!("Successfully fetched Meril configuration from service for analyzer: {}", analyzer.id);
-    
+    let analyzer = app_state
+        .get_autoquant_meril_service()
+        .get_analyzer_config()
+        .await;
+
+    log::info!(
+        "Successfully fetched Meril configuration from service for analyzer: {}",
+        analyzer.id
+    );
+
     MerilConfigResponse {
         success: true,
         analyzer: Some(analyzer),
@@ -85,17 +93,23 @@ pub async fn fetch_meril_config<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> 
 }
 
 /// Saves Meril configuration to store
-async fn save_meril_config_to_store<R: tauri::Runtime>(store: &tauri_plugin_store::Store<R>, analyzer: &Analyzer) -> Result<(), String> {
+async fn save_meril_config_to_store<R: tauri::Runtime>(
+    store: &tauri_plugin_store::Store<R>,
+    analyzer: &Analyzer,
+) -> Result<(), String> {
     let store_data = MerilStoreData {
         analyzer: Some(analyzer.clone()),
     };
-    
+
     let json_value = serde_json::to_value(store_data)
         .map_err(|e| format!("Failed to serialize configuration: {}", e))?;
-    
+
     store.set("config".to_string(), json_value);
-    
-    log::info!("Meril configuration saved successfully for analyzer: {}", analyzer.id);
+
+    log::info!(
+        "Meril configuration saved successfully for analyzer: {}",
+        analyzer.id
+    );
     Ok(())
 }
 
@@ -103,7 +117,10 @@ async fn save_meril_config_to_store<R: tauri::Runtime>(store: &tauri_plugin_stor
 /// Note: This is a placeholder implementation. In a full implementation,
 /// the service would need to be updated to handle configuration changes.
 #[tauri::command]
-pub async fn update_meril_config<R: tauri::Runtime>(app: tauri::AppHandle<R>, analyzer: Analyzer) -> MerilConfigResponse {
+pub async fn update_meril_config<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    analyzer: Analyzer,
+) -> MerilConfigResponse {
     // Validate the configuration first
     if let Err(validation_error) = validate_meril_config(&analyzer) {
         return MerilConfigResponse {
@@ -120,7 +137,7 @@ pub async fn update_meril_config<R: tauri::Runtime>(app: tauri::AppHandle<R>, an
     // TODO: Add update_analyzer_config method to service
     // For now, we'll save to store and log that service update is not yet implemented
     log::warn!("update_meril_config: Service update not yet implemented, saving to store directly");
-    
+
     // Save to store as fallback (temporary until service update is implemented)
     let store = match app.store("meril.json") {
         Ok(store) => store,
@@ -136,34 +153,39 @@ pub async fn update_meril_config<R: tauri::Runtime>(app: tauri::AppHandle<R>, an
 
     match save_meril_config_to_store(&store, &updated_analyzer).await {
         Ok(_) => {
-            log::info!("Meril configuration updated successfully for analyzer: {}", updated_analyzer.id);
+            log::info!(
+                "Meril configuration updated successfully for analyzer: {}",
+                updated_analyzer.id
+            );
             MerilConfigResponse {
                 success: true,
                 analyzer: Some(updated_analyzer),
-                error_message: Some("Configuration saved to store. Service update not yet implemented.".to_string()),
+                error_message: Some(
+                    "Configuration saved to store. Service update not yet implemented.".to_string(),
+                ),
             }
         }
-        Err(save_error) => {
-            MerilConfigResponse {
-                success: false,
-                analyzer: None,
-                error_message: Some(save_error),
-            }
-        }
+        Err(save_error) => MerilConfigResponse {
+            success: false,
+            analyzer: None,
+            error_message: Some(save_error),
+        },
     }
 }
 
 /// Gets the status of the AutoQuantMeril service
 #[tauri::command]
-pub async fn get_meril_service_status<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<MerilServiceStatus, String> {
+pub async fn get_meril_service_status<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<MerilServiceStatus, String> {
     // Get the AppState from AppData
     let app_state = app.state::<crate::app_state::AppState<R>>();
-    
+
     let service = app_state.get_autoquant_meril_service();
     let status = service.get_status().await;
     let connections_count = service.get_connections_count().await;
     let is_running = status == AnalyzerStatus::Active;
-    
+
     Ok(MerilServiceStatus {
         is_running,
         connections_count,
@@ -173,37 +195,45 @@ pub async fn get_meril_service_status<R: tauri::Runtime>(app: tauri::AppHandle<R
 
 /// Starts the AutoQuantMeril service
 #[tauri::command]
-pub async fn start_meril_service<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
+pub async fn start_meril_service<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<(), String> {
     // Get the AppState from AppData
     let app_state = app.state::<crate::app_state::AppState<R>>();
-    
+
     // Note: We need mutable access to start the service
     // For now, we'll use a workaround by cloning the service and starting it
     let service = app_state.get_autoquant_meril_service().clone();
-    
+
     log::info!("Starting Meril service...");
-    
+
     // Start the service
     match service.start().await {
         Ok(()) => {
             log::info!("Meril service started successfully");
-            
+
             // Emit event to frontend
-            let _ = app.emit("meril:service-started", serde_json::json!({
-                "timestamp": chrono::Utc::now()
-            }));
-            
+            let _ = app.emit(
+                "meril:service-started",
+                serde_json::json!({
+                    "timestamp": chrono::Utc::now()
+                }),
+            );
+
             Ok(())
         }
         Err(e) => {
             log::error!("Failed to start Meril service: {}", e);
-            
+
             // Emit error event to frontend
-            let _ = app.emit("meril:service-error", serde_json::json!({
-                "error": e.clone(),
-                "timestamp": chrono::Utc::now()
-            }));
-            
+            let _ = app.emit(
+                "meril:service-error",
+                serde_json::json!({
+                    "error": e.clone(),
+                    "timestamp": chrono::Utc::now()
+                }),
+            );
+
             Err(e)
         }
     }
@@ -214,34 +244,40 @@ pub async fn start_meril_service<R: tauri::Runtime>(app: tauri::AppHandle<R>) ->
 pub async fn stop_meril_service<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
     // Get the AppState from AppData
     let app_state = app.state::<crate::app_state::AppState<R>>();
-    
+
     // Note: We need mutable access to stop the service
     // For now, we'll use a workaround by cloning the service and stopping it
     let service = app_state.get_autoquant_meril_service().clone();
-    
+
     log::info!("Stopping Meril service...");
-    
+
     // Stop the service
     match service.stop().await {
         Ok(()) => {
             log::info!("Meril service stopped successfully");
-            
+
             // Emit event to frontend
-            let _ = app.emit("meril:service-stopped", serde_json::json!({
-                "timestamp": chrono::Utc::now()
-            }));
-            
+            let _ = app.emit(
+                "meril:service-stopped",
+                serde_json::json!({
+                    "timestamp": chrono::Utc::now()
+                }),
+            );
+
             Ok(())
         }
         Err(e) => {
             log::error!("Failed to stop Meril service: {}", e);
-            
+
             // Emit error event to frontend
-            let _ = app.emit("meril:service-error", serde_json::json!({
-                "error": e.clone(),
-                "timestamp": chrono::Utc::now()
-            }));
-            
+            let _ = app.emit(
+                "meril:service-error",
+                serde_json::json!({
+                    "error": e.clone(),
+                    "timestamp": chrono::Utc::now()
+                }),
+            );
+
             Err(e)
         }
     }
@@ -297,4 +333,4 @@ mod tests {
 
         assert!(validate_meril_config(&invalid_analyzer).is_err());
     }
-} 
+}

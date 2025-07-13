@@ -5,11 +5,11 @@ use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::{mpsc, RwLock, Mutex};
-use tokio::time::timeout;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tauri::Runtime;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::{TcpListener, TcpStream};
+use tokio::sync::{mpsc, Mutex, RwLock};
+use tokio::time::timeout;
 
 use crate::models::{Analyzer, AnalyzerStatus};
 
@@ -92,15 +92,15 @@ pub struct PatientData {
 // ASTM PROTOCOL CONSTANTS
 // ============================================================================
 
-const ASTM_ENQ: u8 = 0x05;  // ENQ - Enquiry
-const ASTM_ACK: u8 = 0x06;  // ACK - Acknowledgment
-const ASTM_NAK: u8 = 0x15;  // NAK - Negative Acknowledgment
-const ASTM_EOT: u8 = 0x04;  // EOT - End of Transmission
-const ASTM_STX: u8 = 0x02;  // STX - Start of Text
-const ASTM_ETX: u8 = 0x03;  // ETX - End of Text
-const ASTM_ETB: u8 = 0x17;  // ETB - End of Transmission Block
-// const ASTM_CR: u8 = 0x0D;   // CR - Carriage Return
-// const ASTM_LF: u8 = 0x0A;   // LF - Line Feed
+const ASTM_ENQ: u8 = 0x05; // ENQ - Enquiry
+const ASTM_ACK: u8 = 0x06; // ACK - Acknowledgment
+const ASTM_NAK: u8 = 0x15; // NAK - Negative Acknowledgment
+const ASTM_EOT: u8 = 0x04; // EOT - End of Transmission
+const ASTM_STX: u8 = 0x02; // STX - Start of Text
+const ASTM_ETX: u8 = 0x03; // ETX - End of Text
+const ASTM_ETB: u8 = 0x17; // ETB - End of Transmission Block
+                           // const ASTM_CR: u8 = 0x0D;   // CR - Carriage Return
+                           // const ASTM_LF: u8 = 0x0A;   // LF - Line Feed
 
 // ============================================================================
 // CONNECTION STATE
@@ -167,22 +167,22 @@ impl<R: Runtime> AutoQuantMerilService<R> {
             analyzer.port.ok_or("No port configured")?
         };
         let bind_addr = format!("0.0.0.0:{}", port);
-        
+
         log::info!("Starting AutoQuantMeril service on {}", bind_addr);
-        
+
         // Create TCP listener
         let listener = TcpListener::bind(&bind_addr)
             .await
             .map_err(|e| format!("Failed to bind to {}: {}", bind_addr, e))?;
-        
+
         // Store listener in mutex
         {
             let mut listener_guard = self.listener.lock().await;
             *listener_guard = Some(listener);
         }
-        
+
         *self.is_running.write().await = true;
-        
+
         // Update analyzer status to Active
         let analyzer_id = {
             let mut analyzer = self.analyzer.write().await;
@@ -190,19 +190,25 @@ impl<R: Runtime> AutoQuantMerilService<R> {
             analyzer.updated_at = chrono::Utc::now();
             analyzer.id.clone()
         };
-        
+
         // Save updated analyzer to store
         self.save_analyzer_to_store().await?;
-        
+
         // Emit status update event
-        let _ = self.event_sender.send(MerilEvent::AnalyzerStatusUpdated {
-            analyzer_id: analyzer_id.clone(),
-            status: crate::models::AnalyzerStatus::Active,
-            timestamp: chrono::Utc::now(),
-        }).await;
-        
-        log::info!("AutoQuantMeril service started successfully on port {}", port);
-        
+        let _ = self
+            .event_sender
+            .send(MerilEvent::AnalyzerStatusUpdated {
+                analyzer_id: analyzer_id.clone(),
+                status: crate::models::AnalyzerStatus::Active,
+                timestamp: chrono::Utc::now(),
+            })
+            .await;
+
+        log::info!(
+            "AutoQuantMeril service started successfully on port {}",
+            port
+        );
+
         // Start the connection handler in a separate thread
         let connections = self.connections.clone();
         let is_running = self.is_running.clone();
@@ -212,20 +218,27 @@ impl<R: Runtime> AutoQuantMerilService<R> {
             analyzer.id.clone()
         };
         let listener = self.listener.clone();
-        
+
         tokio::spawn(async move {
-            Self::handle_connections_loop(listener, connections, is_running, event_sender, analyzer_id).await;
+            Self::handle_connections_loop(
+                listener,
+                connections,
+                is_running,
+                event_sender,
+                analyzer_id,
+            )
+            .await;
         });
-        
+
         Ok(())
     }
 
     /// Stops the service
     pub async fn stop(&self) -> Result<(), String> {
         log::info!("Stopping AutoQuantMeril service");
-        
+
         *self.is_running.write().await = false;
-        
+
         // Close all connections
         let mut connections = self.connections.write().await;
         for (analyzer_id, mut connection) in connections.drain() {
@@ -233,13 +246,13 @@ impl<R: Runtime> AutoQuantMerilService<R> {
                 log::warn!("Error shutting down connection for {}: {}", analyzer_id, e);
             }
         }
-        
+
         // Clear listener
         {
             let mut listener_guard = self.listener.lock().await;
             *listener_guard = None;
         }
-        
+
         // Update analyzer status to Inactive
         let analyzer_id = {
             let mut analyzer = self.analyzer.write().await;
@@ -247,34 +260,37 @@ impl<R: Runtime> AutoQuantMerilService<R> {
             analyzer.updated_at = chrono::Utc::now();
             analyzer.id.clone()
         };
-        
+
         // Save updated analyzer to store
         self.save_analyzer_to_store().await?;
-        
+
         // Emit status update event
-        let _ = self.event_sender.send(MerilEvent::AnalyzerStatusUpdated {
-            analyzer_id: analyzer_id.clone(),
-            status: crate::models::AnalyzerStatus::Inactive,
-            timestamp: chrono::Utc::now(),
-        }).await;
-        
+        let _ = self
+            .event_sender
+            .send(MerilEvent::AnalyzerStatusUpdated {
+                analyzer_id: analyzer_id.clone(),
+                status: crate::models::AnalyzerStatus::Inactive,
+                timestamp: chrono::Utc::now(),
+            })
+            .await;
+
         log::info!("AutoQuantMeril service stopped");
         Ok(())
     }
-    
+
     /// Saves the current analyzer configuration to the store
     async fn save_analyzer_to_store(&self) -> Result<(), String> {
         let analyzer = self.analyzer.read().await;
-        
+
         let store_data = crate::api::commands::meril_handler::MerilStoreData {
             analyzer: Some(analyzer.clone()),
         };
-        
+
         let json_value = serde_json::to_value(store_data)
             .map_err(|e| format!("Failed to serialize analyzer configuration: {}", e))?;
-        
+
         self.store.set("config".to_string(), json_value);
-        
+
         log::debug!("Analyzer configuration saved to store");
         Ok(())
     }
@@ -307,7 +323,7 @@ impl<R: Runtime> AutoQuantMerilService<R> {
             match timeout(Duration::from_secs(1), listener_ref.accept()).await {
                 Ok(Ok((stream, addr))) => {
                     log::info!("New connection from {}", addr);
-                    
+
                     let connection = Connection {
                         stream,
                         remote_addr: addr,
@@ -316,24 +332,34 @@ impl<R: Runtime> AutoQuantMerilService<R> {
                         current_frame: Vec::new(),
                         analyzer_id: analyzer_id.clone(),
                     };
-                    
+
                     // Store connection
-                    connections.write().await.insert(analyzer_id.clone(), connection);
-                    
+                    connections
+                        .write()
+                        .await
+                        .insert(analyzer_id.clone(), connection);
+
                     // Send connection event
-                    let _ = event_sender.send(MerilEvent::AnalyzerConnected {
-                        analyzer_id: analyzer_id.clone(),
-                        remote_addr: addr.to_string(),
-                        timestamp: Utc::now(),
-                    }).await;
-                    
+                    let _ = event_sender
+                        .send(MerilEvent::AnalyzerConnected {
+                            analyzer_id: analyzer_id.clone(),
+                            remote_addr: addr.to_string(),
+                            timestamp: Utc::now(),
+                        })
+                        .await;
+
                     // Handle the connection
                     let connections_clone = connections.clone();
                     let event_sender_clone = event_sender.clone();
                     let analyzer_id_clone = analyzer_id.clone();
-                    
+
                     tokio::spawn(async move {
-                        Self::handle_connection(connections_clone, event_sender_clone, analyzer_id_clone).await;
+                        Self::handle_connection(
+                            connections_clone,
+                            event_sender_clone,
+                            analyzer_id_clone,
+                        )
+                        .await;
                     });
                 }
                 Ok(Err(e)) => {
@@ -354,7 +380,7 @@ impl<R: Runtime> AutoQuantMerilService<R> {
         analyzer_id: String,
     ) {
         let mut buffer = [0u8; 1024];
-        
+
         loop {
             // Get connection
             let mut connections_guard = connections.write().await;
@@ -375,16 +401,18 @@ impl<R: Runtime> AutoQuantMerilService<R> {
                 }
                 Ok(Ok(n)) => {
                     let data = &buffer[..n];
-                    
+
                     // Process ASTM protocol
                     if let Err(e) = Self::process_astm_data(connection, data, &event_sender).await {
                         log::error!("Error processing ASTM data: {}", e);
-                        
-                        let _ = event_sender.send(MerilEvent::Error {
-                            analyzer_id: analyzer_id.clone(),
-                            error: e,
-                            timestamp: Utc::now(),
-                        }).await;
+
+                        let _ = event_sender
+                            .send(MerilEvent::Error {
+                                analyzer_id: analyzer_id.clone(),
+                                error: e,
+                                timestamp: Utc::now(),
+                            })
+                            .await;
                     }
                 }
                 Ok(Err(e)) => {
@@ -400,12 +428,14 @@ impl<R: Runtime> AutoQuantMerilService<R> {
 
         // Remove connection
         connections.write().await.remove(&analyzer_id);
-        
+
         // Send disconnection event
-        let _ = event_sender.send(MerilEvent::AnalyzerDisconnected {
-            analyzer_id,
-            timestamp: Utc::now(),
-        }).await;
+        let _ = event_sender
+            .send(MerilEvent::AnalyzerDisconnected {
+                analyzer_id,
+                timestamp: Utc::now(),
+            })
+            .await;
     }
 
     /// Processes ASTM protocol data
@@ -419,9 +449,12 @@ impl<R: Runtime> AutoQuantMerilService<R> {
                 ConnectionState::WaitingForEnq => {
                     if byte == ASTM_ENQ {
                         // Send ACK
-                        connection.stream.write_all(&[ASTM_ACK]).await
+                        connection
+                            .stream
+                            .write_all(&[ASTM_ACK])
+                            .await
                             .map_err(|e| format!("Failed to send ACK: {}", e))?;
-                        
+
                         connection.state = ConnectionState::WaitingForFrame;
                         log::debug!("Received ENQ, sent ACK, waiting for frame");
                     }
@@ -436,33 +469,42 @@ impl<R: Runtime> AutoQuantMerilService<R> {
                         // End of transmission
                         connection.state = ConnectionState::Complete;
                         log::info!("Received EOT, transmission complete");
-                        
+
                         // Process complete message
                         Self::process_complete_message(connection, event_sender).await?;
-                        
+
                         // Send ACK for EOT
-                        connection.stream.write_all(&[ASTM_ACK]).await
+                        connection
+                            .stream
+                            .write_all(&[ASTM_ACK])
+                            .await
                             .map_err(|e| format!("Failed to send ACK for EOT: {}", e))?;
-                        
+
                         connection.state = ConnectionState::WaitingForEnq;
                     }
                 }
                 ConnectionState::ProcessingFrame => {
                     connection.current_frame.push(byte);
-                    
+
                     if byte == ASTM_ETX || byte == ASTM_ETB {
                         // End of frame
                         if let Err(e) = Self::process_frame(connection, event_sender).await {
                             // Send NAK on error
-                            connection.stream.write_all(&[ASTM_NAK]).await
+                            connection
+                                .stream
+                                .write_all(&[ASTM_NAK])
+                                .await
                                 .map_err(|e| format!("Failed to send NAK: {}", e))?;
                             return Err(e);
                         }
-                        
+
                         // Send ACK
-                        connection.stream.write_all(&[ASTM_ACK]).await
+                        connection
+                            .stream
+                            .write_all(&[ASTM_ACK])
+                            .await
                             .map_err(|e| format!("Failed to send ACK: {}", e))?;
-                        
+
                         connection.state = ConnectionState::WaitingForFrame;
                     }
                 }
@@ -472,7 +514,7 @@ impl<R: Runtime> AutoQuantMerilService<R> {
                 }
             }
         }
-        
+
         Ok(())
     }
 
@@ -483,28 +525,39 @@ impl<R: Runtime> AutoQuantMerilService<R> {
     ) -> Result<(), String> {
         // Validate checksum
         if !Self::validate_checksum(&connection.current_frame) {
-            log::error!("Checksum validation failed for frame: {:?}", connection.current_frame);
+            log::error!(
+                "Checksum validation failed for frame: {:?}",
+                connection.current_frame
+            );
         }
-        
+
         // Extract frame data (remove STX, ETX/ETB, checksum, CR, LF)
         let frame_data = Self::extract_frame_data(&connection.current_frame)?;
-        
+
         // Parse ASTM record
         let record_type = Self::parse_record_type(&frame_data)?;
-        
-        log::debug!("Processed ASTM frame: {} - {}", record_type, String::from_utf8_lossy(&frame_data));
-        
+
+        log::debug!(
+            "Processed ASTM frame: {} - {}",
+            record_type,
+            String::from_utf8_lossy(&frame_data)
+        );
+
         // Store the completed frame for later processing
-        connection.frame_buffer.push(connection.current_frame.clone());
-        
+        connection
+            .frame_buffer
+            .push(connection.current_frame.clone());
+
         // Send event
-        let _ = event_sender.send(MerilEvent::AstmMessageReceived {
-            analyzer_id: connection.analyzer_id.clone(),
-            message_type: record_type,
-            raw_data: String::from_utf8_lossy(&frame_data).to_string(),
-            timestamp: Utc::now(),
-        }).await;
-        
+        let _ = event_sender
+            .send(MerilEvent::AstmMessageReceived {
+                analyzer_id: connection.analyzer_id.clone(),
+                message_type: record_type,
+                raw_data: String::from_utf8_lossy(&frame_data).to_string(),
+                timestamp: Utc::now(),
+            })
+            .await;
+
         Ok(())
     }
 
@@ -513,17 +566,20 @@ impl<R: Runtime> AutoQuantMerilService<R> {
         connection: &mut Connection,
         event_sender: &mpsc::Sender<MerilEvent>,
     ) -> Result<(), String> {
-        log::info!("Processing complete ASTM message from {}", connection.remote_addr);
-        
+        log::info!(
+            "Processing complete ASTM message from {}",
+            connection.remote_addr
+        );
+
         // Parse all collected frames to extract patient and test result data
         let mut patient_data: Option<PatientData> = None;
         let mut test_results = Vec::new();
-        
+
         // Process each frame to extract patient and result data
         for frame in &connection.frame_buffer {
             if let Ok(frame_data) = Self::extract_frame_data(frame) {
                 let record_type = Self::parse_record_type(&frame_data)?;
-                
+
                 match record_type.as_str() {
                     "Patient" => {
                         if let Ok(patient) = Self::parse_patient_record(&frame_data) {
@@ -543,16 +599,18 @@ impl<R: Runtime> AutoQuantMerilService<R> {
                 }
             }
         }
-        
+
         // Send the processed data as an event
-        let _ = event_sender.send(MerilEvent::LabResultProcessed {
-            analyzer_id: connection.analyzer_id.clone(),
-            patient_id: patient_data.as_ref().map(|p| p.id.clone()),
-            patient_data,
-            test_results,
-            timestamp: Utc::now(),
-        }).await;
-        
+        let _ = event_sender
+            .send(MerilEvent::LabResultProcessed {
+                analyzer_id: connection.analyzer_id.clone(),
+                patient_id: patient_data.as_ref().map(|p| p.id.clone()),
+                patient_data,
+                test_results,
+                timestamp: Utc::now(),
+            })
+            .await;
+
         Ok(())
     }
 
@@ -561,19 +619,19 @@ impl<R: Runtime> AutoQuantMerilService<R> {
         if frame.len() < 4 {
             return false;
         }
-        
+
         // Simple checksum validation (modulo 8 of sum)
         let mut sum = 0u8;
         let start_idx = 1; // Skip STX
         let end_idx = frame.len() - 4; // Before ETX/ETB, checksum, CR, LF
-        
+
         for &byte in &frame[start_idx..end_idx] {
             sum = sum.wrapping_add(byte);
         }
-        
+
         let expected_checksum = sum % 8;
         let actual_checksum = frame[frame.len() - 3]; // Checksum byte
-        
+
         expected_checksum == actual_checksum
     }
 
@@ -582,11 +640,11 @@ impl<R: Runtime> AutoQuantMerilService<R> {
         if frame.len() < 4 {
             return Err("Frame too short".to_string());
         }
-        
+
         // Remove STX, ETX/ETB, checksum, CR, LF
         let start_idx = 1; // After STX
         let end_idx = frame.len() - 4; // Before ETX/ETB, checksum, CR, LF
-        
+
         Ok(frame[start_idx..end_idx].to_vec())
     }
 
@@ -595,7 +653,7 @@ impl<R: Runtime> AutoQuantMerilService<R> {
         if frame_data.is_empty() {
             return Err("Empty frame data".to_string());
         }
-        
+
         let first_char = frame_data[0] as char;
         let record_type = match first_char {
             'H' => "Header",
@@ -607,7 +665,7 @@ impl<R: Runtime> AutoQuantMerilService<R> {
             'L' => "Terminator",
             _ => "Unknown",
         };
-        
+
         Ok(record_type.to_string())
     }
 
@@ -634,22 +692,23 @@ impl<R: Runtime> AutoQuantMerilService<R> {
     fn parse_patient_record(frame_data: &[u8]) -> Result<PatientData, String> {
         let data_str = String::from_utf8_lossy(frame_data);
         let fields: Vec<&str> = data_str.split('|').collect();
-        
+
         if fields.len() < 2 {
             return Err("Invalid patient record format".to_string());
         }
-        
+
         // Parse patient name (field 6) - format: LastName^FirstName^MiddleName^Title
         let name_parts: Vec<&str> = fields.get(6).unwrap_or(&"").split('^').collect();
         let name = if name_parts.len() >= 2 {
-            format!("{} {}", 
-                name_parts.get(1).unwrap_or(&""), 
+            format!(
+                "{} {}",
+                name_parts.get(1).unwrap_or(&""),
                 name_parts.get(0).unwrap_or(&"")
             )
         } else {
             fields.get(6).unwrap_or(&"").to_string()
         };
-        
+
         Ok(PatientData {
             id: fields.get(3).unwrap_or(&"").to_string(),
             name,
@@ -667,15 +726,15 @@ impl<R: Runtime> AutoQuantMerilService<R> {
     fn parse_result_record(frame_data: &[u8]) -> Result<TestResult, String> {
         let data_str = String::from_utf8_lossy(frame_data);
         let fields: Vec<&str> = data_str.split('|').collect();
-        
+
         if fields.len() < 4 {
             return Err("Invalid result record format".to_string());
         }
-        
+
         // Parse test ID (field 3) - format: ^^^TEST_NAME
         let test_id_parts: Vec<&str> = fields.get(3).unwrap_or(&"").split('^').collect();
         let test_name = test_id_parts.last().unwrap_or(&"").to_string();
-        
+
         // Parse reference range (field 6) - format: lower^upper
         let reference_range = fields.get(6).and_then(|range_str| {
             if !range_str.is_empty() {
@@ -689,9 +748,10 @@ impl<R: Runtime> AutoQuantMerilService<R> {
                 None
             }
         });
-        
+
         // Parse flags (field 7)
-        let flags = fields.get(7)
+        let flags = fields
+            .get(7)
             .map(|flag_str| {
                 if !flag_str.is_empty() {
                     vec![flag_str.to_string()]
@@ -700,7 +760,7 @@ impl<R: Runtime> AutoQuantMerilService<R> {
                 }
             })
             .unwrap_or_default();
-        
+
         let now = Utc::now();
         Ok(TestResult {
             id: format!("result_{}", now.timestamp()),
@@ -717,4 +777,4 @@ impl<R: Runtime> AutoQuantMerilService<R> {
             updated_at: now,
         })
     }
-} 
+}

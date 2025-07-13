@@ -17,6 +17,12 @@ fn greet(name: &str) -> String {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_sql::Builder::new().build())
+        .plugin(
+            tauri_plugin_sql::Builder::new()
+                .add_migrations("sqlite:nramh-lis.db", migrations::get_migrations())
+                .build(),
+        )
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_fs::init())
         .plugin(
@@ -28,11 +34,6 @@ pub fn run() {
                 ))
                 .build(),
         )
-        // .plugin(
-        //     tauri_plugin_sql::Builder::new()
-        //         .add_migrations(&format!("sqlite:{}", get_db_slug()), storage::migrations::get_migrations())
-        //         .build()
-        // )
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let _ = block_on(setup(app.handle().clone())).map_err(|e| {

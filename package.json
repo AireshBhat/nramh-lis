@@ -43,7 +43,7 @@
     "@tauri-apps/plugin-fs": "~2.4.0",
     "@tauri-apps/plugin-log": "~2.6.0",
     "@tauri-apps/plugin-opener": "^2",
-    "@tauri-apps/plugin-sql": "~2.3.0",
+    "@tauri-apps/plugin-sql": "~2",
     "@tauri-apps/plugin-store": "~2.3.0",
     "@types/node": "20.6.2",
     "@types/react": "18.2.22",
