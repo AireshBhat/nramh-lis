@@ -208,13 +208,14 @@ impl<R: Runtime> AppState<R> {
                         "timestamp": timestamp
                     }));
                 }
-                crate::services::autoquant_meril::MerilEvent::LabResultProcessed { analyzer_id, patient_id, test_results, timestamp } => {
+                crate::services::autoquant_meril::MerilEvent::LabResultProcessed { analyzer_id, patient_id, patient_data, test_results, timestamp } => {
                     log::info!("Lab results processed for analyzer {}: {} tests", analyzer_id, test_results.len());
                     
                     // Emit event to frontend
                     let _ = app.emit("meril:lab-results", serde_json::json!({
                         "analyzer_id": analyzer_id,
                         "patient_id": patient_id,
+                        "patient_data": patient_data,
                         "test_results": test_results,
                         "timestamp": timestamp
                     }));

@@ -4,6 +4,18 @@ import { useToast } from '@/hooks/use-toast';
 import { Patient, TestResult, ReferenceRange } from '@/lib/types';
 
 // Types for the lab result event payload from backend
+interface BackendPatientData {
+  id: string;
+  name: string;
+  birth_date?: string;
+  sex?: string;
+  address?: string;
+  telephone?: string;
+  physicians?: string;
+  height?: string;
+  weight?: string;
+}
+
 interface BackendTestResult {
   id: string;
   test_id: string;
@@ -22,6 +34,7 @@ interface BackendTestResult {
 interface LabResultEventPayload {
   analyzer_id: string;
   patient_id?: string;
+  patient_data?: BackendPatientData;
   test_results: BackendTestResult[];
   timestamp: string;
 }
@@ -34,11 +47,13 @@ interface ExtendedTestResult extends Omit<TestResult, 'referenceRange'> {
 interface UseTestResultsReturn {
   latestResults: {
     patientId?: string;
+    patientData?: BackendPatientData;
     testResults: ExtendedTestResult[];
     timestamp: Date;
   } | null;
   allResults: Array<{
     patientId?: string;
+    patientData?: BackendPatientData;
     testResults: ExtendedTestResult[];
     timestamp: Date;
   }>;
@@ -78,6 +93,7 @@ export function useTestResults(): UseTestResultsReturn {
     
     const results = {
       patientId: event.patient_id,
+      patientData: event.patient_data,
       testResults: convertedTestResults,
       timestamp: new Date(event.timestamp),
     };
@@ -92,6 +108,21 @@ export function useTestResults(): UseTestResultsReturn {
     console.group('📊 Lab Results Details');
     console.log('Analyzer ID:', event.analyzer_id);
     console.log('Patient ID:', event.patient_id || 'Not provided');
+    
+    // Log patient details if available
+    if (event.patient_data) {
+      console.group('👤 Patient Details');
+      console.log('Name:', event.patient_data.name);
+      console.log('Birth Date:', event.patient_data.birth_date || 'Not provided');
+      console.log('Sex:', event.patient_data.sex || 'Not provided');
+      console.log('Address:', event.patient_data.address || 'Not provided');
+      console.log('Telephone:', event.patient_data.telephone || 'Not provided');
+      console.log('Physicians:', event.patient_data.physicians || 'Not provided');
+      console.log('Height:', event.patient_data.height || 'Not provided');
+      console.log('Weight:', event.patient_data.weight || 'Not provided');
+      console.groupEnd();
+    }
+    
     console.log('Timestamp:', new Date(event.timestamp).toLocaleString());
     console.log('Number of tests:', event.test_results.length);
     

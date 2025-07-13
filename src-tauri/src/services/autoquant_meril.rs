@@ -41,6 +41,7 @@ pub enum MerilEvent {
     LabResultProcessed {
         analyzer_id: String,
         patient_id: Option<String>,
+        patient_data: Option<PatientData>,
         test_results: Vec<TestResult>,
         timestamp: DateTime<Utc>,
     },
@@ -547,6 +548,7 @@ impl<R: Runtime> AutoQuantMerilService<R> {
         let _ = event_sender.send(MerilEvent::LabResultProcessed {
             analyzer_id: connection.analyzer_id.clone(),
             patient_id: patient_data.as_ref().map(|p| p.id.clone()),
+            patient_data,
             test_results,
             timestamp: Utc::now(),
         }).await;
