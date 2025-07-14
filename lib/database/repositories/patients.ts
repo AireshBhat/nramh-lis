@@ -87,86 +87,88 @@ export class PatientRepository extends BaseRepositoryImpl<Patient, CreatePatient
     const updates: string[] = [];
     const bindValues: any[] = [];
 
-    // Build dynamic update query
+    // Build dynamic update query with sequential placeholders
+    let placeholderIndex = 1;
+    
     if (data.name?.lastName !== undefined) {
-      updates.push('last_name = ?');
+      updates.push(`last_name = $${placeholderIndex++}`);
       bindValues.push(data.name.lastName);
     }
     if (data.name?.firstName !== undefined) {
-      updates.push('first_name = ?');
+      updates.push(`first_name = $${placeholderIndex++}`);
       bindValues.push(data.name.firstName);
     }
     if (data.name?.middleName !== undefined) {
-      updates.push('middle_name = ?');
+      updates.push(`middle_name = $${placeholderIndex++}`);
       bindValues.push(data.name.middleName);
     }
     if (data.name?.title !== undefined) {
-      updates.push('title = ?');
+      updates.push(`title = $${placeholderIndex++}`);
       bindValues.push(data.name.title);
     }
     if (data.birthDate !== undefined) {
-      updates.push('birth_date = ?');
+      updates.push(`birth_date = $${placeholderIndex++}`);
       bindValues.push(data.birthDate?.toISOString() || null);
     }
     if (data.sex !== undefined) {
-      updates.push('sex = ?');
+      updates.push(`sex = $${placeholderIndex++}`);
       bindValues.push(this.mapSexToDatabase(data.sex));
     }
     if (data.address?.street !== undefined) {
-      updates.push('street = ?');
+      updates.push(`street = $${placeholderIndex++}`);
       bindValues.push(data.address.street);
     }
     if (data.address?.city !== undefined) {
-      updates.push('city = ?');
+      updates.push(`city = $${placeholderIndex++}`);
       bindValues.push(data.address.city);
     }
     if (data.address?.state !== undefined) {
-      updates.push('state = ?');
+      updates.push(`state = $${placeholderIndex++}`);
       bindValues.push(data.address.state);
     }
     if (data.address?.zip !== undefined) {
-      updates.push('zip = ?');
+      updates.push(`zip = $${placeholderIndex++}`);
       bindValues.push(data.address.zip);
     }
     if (data.address?.countryCode !== undefined) {
-      updates.push('country_code = ?');
+      updates.push(`country_code = $${placeholderIndex++}`);
       bindValues.push(data.address.countryCode);
     }
     if (data.telephone !== undefined) {
-      updates.push('telephone = ?');
+      updates.push(`telephone = $${placeholderIndex++}`);
       bindValues.push(JSON.stringify(data.telephone));
     }
     if (data.physicians?.ordering !== undefined) {
-      updates.push('ordering_physician = ?');
+      updates.push(`ordering_physician = $${placeholderIndex++}`);
       bindValues.push(data.physicians.ordering);
     }
     if (data.physicians?.attending !== undefined) {
-      updates.push('attending_physician = ?');
+      updates.push(`attending_physician = $${placeholderIndex++}`);
       bindValues.push(data.physicians.attending);
     }
     if (data.physicians?.referring !== undefined) {
-      updates.push('referring_physician = ?');
+      updates.push(`referring_physician = $${placeholderIndex++}`);
       bindValues.push(data.physicians.referring);
     }
     if (data.physicalAttributes?.height?.value !== undefined) {
-      updates.push('height_value = ?');
+      updates.push(`height_value = $${placeholderIndex++}`);
       bindValues.push(data.physicalAttributes.height.value);
     }
     if (data.physicalAttributes?.height?.unit !== undefined) {
-      updates.push('height_unit = ?');
+      updates.push(`height_unit = $${placeholderIndex++}`);
       bindValues.push(data.physicalAttributes.height.unit);
     }
     if (data.physicalAttributes?.weight?.value !== undefined) {
-      updates.push('weight_value = ?');
+      updates.push(`weight_value = $${placeholderIndex++}`);
       bindValues.push(data.physicalAttributes.weight.value);
     }
     if (data.physicalAttributes?.weight?.unit !== undefined) {
-      updates.push('weight_unit = ?');
+      updates.push(`weight_unit = $${placeholderIndex++}`);
       bindValues.push(data.physicalAttributes.weight.unit);
     }
 
     // Always update the updated_at timestamp
-    updates.push('updated_at = ?');
+    updates.push(`updated_at = $${placeholderIndex++}`);
     bindValues.push(now);
 
     if (updates.length === 1) {
@@ -174,7 +176,7 @@ export class PatientRepository extends BaseRepositoryImpl<Patient, CreatePatient
       return existing;
     }
 
-    const sql = `UPDATE ${this.tableName} SET ${updates.join(', ')} WHERE ${this.idColumn} = ?`;
+    const sql = `UPDATE ${this.tableName} SET ${updates.join(', ')} WHERE ${this.idColumn} = $${placeholderIndex}`;
     bindValues.push(id);
 
     await this.db.executeUpdate(sql, bindValues);

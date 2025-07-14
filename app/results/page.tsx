@@ -1,6 +1,7 @@
 'use client';
 
 import { useLabResults } from '@/hooks/use-lab-results';
+import { usePatients } from '@/hooks/use-patients';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,12 +9,19 @@ import { Separator } from '@/components/ui/separator';
 import { RefreshCw, User, TestTube, Calendar, Phone, MapPin } from 'lucide-react';
 import { useMemo } from 'react';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
+import { TestResult, Patient } from '@/lib/types';
 
 export default function ResultsPage() {
   const { latestResults, allResults, clearResults, refreshResults, loading, error, clearError } = useLabResults({
     autoRefresh: true,
     refreshInterval: 10000, // Refresh every 10 seconds
-    maxResultsInMemory: 20
+    maxResultsInMemory: 100
+  });
+
+  // Fetch patients to get patient information
+  const { patients, fetchPatients } = usePatients({ 
+    autoLoad: true, 
+    limit: 100 
   });
 
   // Group all test results by patient
@@ -46,22 +54,35 @@ export default function ResultsPage() {
     }>();
 
     // Process all results to group by patient
-    allResults.forEach(batch => {
-      const patientId = batch.patientId || batch.patientData?.id || 'unknown';
-      const patientName = batch.patientData?.name || `Patient ${patientId}`;
+    allResults.forEach((testResult: TestResult) => {
+      const patientId = testResult.patientId || 'unknown';
+      
+      // Find patient information from the patients list
+      const patient = patients.find(p => p.id === patientId);
+      const patientName = patient ? 
+        `${patient.name.firstName || ''} ${patient.name.lastName || ''}`.trim() || 'Unknown Patient' :
+        `Patient ${patientId}`;
       
       if (!patientMap.has(patientId)) {
         patientMap.set(patientId, {
           patient: {
             id: patientId,
             name: patientName,
-            birthDate: batch.patientData?.birth_date,
-            sex: batch.patientData?.sex,
-            address: batch.patientData?.address,
-            telephone: batch.patientData?.telephone,
-            physicians: batch.patientData?.physicians,
-            height: batch.patientData?.height,
-            weight: batch.patientData?.weight,
+            birthDate: patient?.birthDate?.toLocaleDateString(),
+            sex: patient?.sex,
+            address: patient?.address ? 
+              `${patient.address.street || ''}, ${patient.address.city || ''}, ${patient.address.state || ''} ${patient.address.zip || ''}`.trim() :
+              undefined,
+            telephone: patient?.telephone?.join(', '),
+            physicians: patient?.physicians ? 
+              `${patient.physicians.ordering || ''} ${patient.physicians.attending || ''} ${patient.physicians.referring || ''}`.trim() :
+              undefined,
+            height: patient?.physicalAttributes?.height ? 
+              `${patient.physicalAttributes.height.value} ${patient.physicalAttributes.height.unit}` :
+              undefined,
+            weight: patient?.physicalAttributes?.weight ? 
+              `${patient.physicalAttributes.weight.value} ${patient.physicalAttributes.weight.unit}` :
+              undefined,
           },
           tests: []
         });
@@ -69,12 +90,23 @@ export default function ResultsPage() {
 
       const patientData = patientMap.get(patientId)!;
       
-      // Add tests from this batch
-      batch.testResults.forEach(test => {
-        patientData.tests.push({
-          ...test,
-          timestamp: batch.timestamp
-        });
+      // Add this test result
+      patientData.tests.push({
+        id: testResult.id,
+        testId: testResult.testId,
+        sampleId: testResult.sampleId,
+        value: testResult.value,
+        units: testResult.units,
+        referenceRange: testResult.referenceRange ? 
+          `${testResult.referenceRange.lowerLimit || ''}-${testResult.referenceRange.upperLimit || ''}` : undefined,
+        flags: [
+          ...(testResult.flags?.abnormalFlag ? [testResult.flags.abnormalFlag] : []),
+          ...(testResult.flags?.natureOfAbnormality ? [testResult.flags.natureOfAbnormality] : [])
+        ],
+        status: testResult.status,
+        completedDateTime: testResult.completedDateTime?.toISOString(),
+        analyzerId: testResult.analyzerId,
+        timestamp: testResult.completedDateTime || testResult.createdAt,
       });
     });
 
@@ -84,7 +116,15 @@ export default function ResultsPage() {
       const bLatest = Math.max(...b.tests.map(t => t.timestamp.getTime()));
       return bLatest - aLatest;
     });
-  }, [allResults]);
+  }, [allResults, patients]);
+
+  // Fetch patients when component mounts or when refreshing
+  const handleRefresh = async () => {
+    await Promise.all([
+      refreshResults(),
+      fetchPatients({ limit: 100, offset: 0 })
+    ]);
+  };
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -97,7 +137,7 @@ export default function ResultsPage() {
               Loading...
             </div>
           )}
-          <Button onClick={refreshResults} variant="outline" disabled={loading}>
+          <Button onClick={handleRefresh} variant="outline" disabled={loading}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
@@ -268,18 +308,6 @@ export default function ResultsPage() {
                                   </div>
                                 )}
                               </div>
-                              {test.flags && test.flags.length > 0 && (
-                                <div className="mt-3 pt-3 border-t">
-                                  <p className="text-sm text-muted-foreground mb-1">Flags</p>
-                                  <div className="flex flex-wrap gap-1">
-                                    {test.flags.map((flag, flagIndex) => (
-                                      <Badge key={flagIndex} variant="destructive" className="text-xs">
-                                        {flag}
-                                      </Badge>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
                             </div>
                           ))}
                       </div>

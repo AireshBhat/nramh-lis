@@ -77,66 +77,68 @@ export class TestResultRepository extends BaseRepositoryImpl<TestResult, CreateT
     const updates: string[] = [];
     const bindValues: any[] = [];
 
-    // Build dynamic update query
+    // Build dynamic update query with sequential placeholders
+    let placeholderIndex = 1;
+    
     if (data.testId !== undefined) {
-      updates.push('test_id = ?');
+      updates.push(`test_id = $${placeholderIndex++}`);
       bindValues.push(data.testId);
     }
     if (data.sampleId !== undefined) {
-      updates.push('sample_id = ?');
+      updates.push(`sample_id = $${placeholderIndex++}`);
       bindValues.push(data.sampleId);
     }
     if (data.value !== undefined) {
-      updates.push('value = ?');
+      updates.push(`value = $${placeholderIndex++}`);
       bindValues.push(data.value);
     }
     if (data.units !== undefined) {
-      updates.push('units = ?');
+      updates.push(`units = $${placeholderIndex++}`);
       bindValues.push(data.units);
     }
     if (data.referenceRange?.lowerLimit !== undefined) {
-      updates.push('reference_range_lower = ?');
+      updates.push(`reference_range_lower = $${placeholderIndex++}`);
       bindValues.push(data.referenceRange.lowerLimit);
     }
     if (data.referenceRange?.upperLimit !== undefined) {
-      updates.push('reference_range_upper = ?');
+      updates.push(`reference_range_upper = $${placeholderIndex++}`);
       bindValues.push(data.referenceRange.upperLimit);
     }
     if (data.flags?.abnormalFlag !== undefined) {
-      updates.push('abnormal_flag = ?');
+      updates.push(`abnormal_flag = $${placeholderIndex++}`);
       bindValues.push(data.flags.abnormalFlag);
     }
     if (data.flags?.natureOfAbnormality !== undefined) {
-      updates.push('nature_of_abnormality = ?');
+      updates.push(`nature_of_abnormality = $${placeholderIndex++}`);
       bindValues.push(data.flags.natureOfAbnormality);
     }
     if (data.status !== undefined) {
-      updates.push('status = ?');
+      updates.push(`status = $${placeholderIndex++}`);
       bindValues.push(this.mapStatusToDatabase(data.status));
     }
     if (data.metadata?.sequenceNumber !== undefined) {
-      updates.push('sequence_number = ?');
+      updates.push(`sequence_number = $${placeholderIndex++}`);
       bindValues.push(data.metadata.sequenceNumber);
     }
     if (data.metadata?.instrument !== undefined) {
-      updates.push('instrument = ?');
+      updates.push(`instrument = $${placeholderIndex++}`);
       bindValues.push(data.metadata.instrument);
     }
     if (data.completedDateTime !== undefined) {
-      updates.push('completed_date_time = ?');
+      updates.push(`completed_date_time = $${placeholderIndex++}`);
       bindValues.push(data.completedDateTime?.toISOString() || null);
     }
     if (data.analyzerId !== undefined) {
-      updates.push('analyzer_id = ?');
+      updates.push(`analyzer_id = $${placeholderIndex++}`);
       bindValues.push(data.analyzerId);
     }
     if (data.patientId !== undefined) {
-      updates.push('patient_id = ?');
+      updates.push(`patient_id = $${placeholderIndex++}`);
       bindValues.push(data.patientId);
     }
 
     // Always update the updated_at timestamp
-    updates.push('updated_at = ?');
+    updates.push(`updated_at = $${placeholderIndex++}`);
     bindValues.push(now);
 
     if (updates.length === 1) {
@@ -144,7 +146,7 @@ export class TestResultRepository extends BaseRepositoryImpl<TestResult, CreateT
       return existing;
     }
 
-    const sql = `UPDATE ${this.tableName} SET ${updates.join(', ')} WHERE ${this.idColumn} = ?`;
+    const sql = `UPDATE ${this.tableName} SET ${updates.join(', ')} WHERE ${this.idColumn} = $${placeholderIndex}`;
     bindValues.push(id);
 
     await this.db.executeUpdate(sql, bindValues);
@@ -255,10 +257,14 @@ export class TestResultRepository extends BaseRepositoryImpl<TestResult, CreateT
       return [];
     }
 
+    console.log(`Starting batch insert of ${results.length} test results`);
     const now = this.getCurrentTimestamp();
     const ids: string[] = [];
     
-    for (const data of results) {
+    for (let i = 0; i < results.length; i++) {
+      const data = results[i];
+      console.log(`Processing test result ${i + 1}/${results.length}: ${data.testId}`);
+      
       this.validateCreateData(data);
       const id = this.generateId();
 
@@ -291,10 +297,17 @@ export class TestResultRepository extends BaseRepositoryImpl<TestResult, CreateT
         now
       ];
 
-      await this.db.executeUpdate(sql, bindValues);
-      ids.push(id);
+      try {
+        await this.db.executeUpdate(sql, bindValues);
+        ids.push(id);
+        console.log(`Successfully inserted test result ${i + 1}/${results.length}: ${id}`);
+      } catch (error) {
+        console.error(`Failed to insert test result ${i + 1}/${results.length}:`, error);
+        throw error;
+      }
     }
 
+    console.log(`Completed batch insert of ${ids.length} test results`);
     return ids;
   }
 

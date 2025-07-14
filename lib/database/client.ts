@@ -27,19 +27,38 @@ export class DatabaseClient {
   }
 
   /**
-   * Execute a SELECT query and return multiple results
+   * Execute a SELECT query and return multiple results with retry logic for database locks
    */
   async execute<T = any>(sql: string, bindValues?: any[]): Promise<T[]> {
     if (!this.db || !this.isInitialized) {
       throw new Error('Database not initialized. Call initialize() first.');
     }
 
-    try {
-      return await this.db.select(sql, bindValues || []);
-    } catch (error) {
-      console.error('Database query failed:', { sql, bindValues, error });
-      throw new Error(`Query execution failed: ${error}`);
+    const maxRetries = 3;
+    const baseDelay = 100; // 100ms base delay
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await this.db.select(sql, bindValues || []);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        
+        // Check if it's a database lock error
+        if (errorMessage.includes('database is locked') || errorMessage.includes('SQLITE_BUSY')) {
+          if (attempt < maxRetries) {
+            const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
+            console.warn(`Database locked, retrying in ${delay}ms (attempt ${attempt}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+        }
+        
+        console.error('Database query failed:', { sql, bindValues, error, attempt });
+        throw new Error(`Query execution failed: ${error}`);
+      }
     }
+
+    throw new Error('Database query failed after all retries');
   }
 
   /**
@@ -51,41 +70,87 @@ export class DatabaseClient {
   }
 
   /**
-   * Execute an INSERT, UPDATE, or DELETE query
+   * Execute an INSERT, UPDATE, or DELETE query with retry logic for database locks
    */
   async executeUpdate(sql: string, bindValues?: any[]): Promise<number> {
     if (!this.db || !this.isInitialized) {
       throw new Error('Database not initialized. Call initialize() first.');
     }
 
-    try {
-      const result = await this.db.execute(sql, bindValues || []);
-      return result.rowsAffected || 0;
-    } catch (error) {
-      console.error('Database update failed:', { sql, bindValues, error });
-      throw new Error(`Update execution failed: ${error}`);
+    const maxRetries = 3;
+    const baseDelay = 100; // 100ms base delay
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const result = await this.db.execute(sql, bindValues || []);
+        console.log('result', result);
+        return result.rowsAffected || 0;
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        
+        // Check if it's a database lock error
+        if (errorMessage.includes('database is locked') || errorMessage.includes('SQLITE_BUSY')) {
+          if (attempt < maxRetries) {
+            const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
+            console.warn(`Database locked, retrying in ${delay}ms (attempt ${attempt}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+        }
+        
+        console.error('Database update failed:', { sql, bindValues, error, attempt });
+        throw new Error(`Update execution failed: ${error}`);
+      }
     }
+
+    throw new Error('Database update failed after all retries');
   }
 
   /**
-   * Execute a transaction with multiple operations
+   * Execute a transaction with multiple operations and retry logic for database locks
    */
   async transaction<T>(operations: () => Promise<T>): Promise<T> {
     if (!this.db || !this.isInitialized) {
       throw new Error('Database not initialized. Call initialize() first.');
     }
 
-    try {
-      await this.db.execute('BEGIN TRANSACTION');
-      const result = await operations();
-      await this.db.execute('COMMIT');
-      return result;
-    } catch (error) {
-      if (this.db) {
-        await this.db.execute('ROLLBACK');
+    const maxRetries = 3;
+    const baseDelay = 100; // 100ms base delay
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await this.db.execute('BEGIN TRANSACTION');
+        const result = await operations();
+        await this.db.execute('COMMIT');
+        return result;
+      } catch (error) {
+        // Always try to rollback on error
+        if (this.db) {
+          try {
+            await this.db.execute('ROLLBACK');
+          } catch (rollbackError) {
+            console.error('Error during rollback:', rollbackError);
+          }
+        }
+
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        
+        // Check if it's a database lock error
+        if (errorMessage.includes('database is locked') || errorMessage.includes('SQLITE_BUSY')) {
+          if (attempt < maxRetries) {
+            const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
+            console.warn(`Database locked during transaction, retrying in ${delay}ms (attempt ${attempt}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+        }
+        
+        // For non-lock errors or after all retries, throw the error
+        throw error;
       }
-      throw error;
     }
+
+    throw new Error('Transaction failed after all retries');
   }
 
   /**

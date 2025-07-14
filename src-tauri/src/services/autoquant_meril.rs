@@ -99,8 +99,8 @@ const ASTM_EOT: u8 = 0x04; // EOT - End of Transmission
 const ASTM_STX: u8 = 0x02; // STX - Start of Text
 const ASTM_ETX: u8 = 0x03; // ETX - End of Text
 const ASTM_ETB: u8 = 0x17; // ETB - End of Transmission Block
-                           // const ASTM_CR: u8 = 0x0D;   // CR - Carriage Return
-                           // const ASTM_LF: u8 = 0x0A;   // LF - Line Feed
+const ASTM_CR: u8 = 0x0D; // CR - Carriage Return
+const ASTM_LF: u8 = 0x0A; // LF - Line Feed
 
 // ============================================================================
 // CONNECTION STATE
@@ -111,6 +111,9 @@ pub enum ConnectionState {
     WaitingForEnq,
     WaitingForFrame,
     ProcessingFrame,
+    WaitingForChecksum,
+    WaitingForCR,
+    WaitingForLF,
     Complete,
 }
 
@@ -467,7 +470,6 @@ impl<R: Runtime> AutoQuantMerilService<R> {
                         log::debug!("Received STX, processing frame");
                     } else if byte == ASTM_EOT {
                         // End of transmission
-                        connection.state = ConnectionState::Complete;
                         log::info!("Received EOT, transmission complete");
 
                         // Process complete message
@@ -480,14 +482,55 @@ impl<R: Runtime> AutoQuantMerilService<R> {
                             .await
                             .map_err(|e| format!("Failed to send ACK for EOT: {}", e))?;
 
+                        // Clear frame buffer for next transmission
+                        connection.frame_buffer.clear();
+                        connection.current_frame.clear();
+
+                        // Reset state for next transmission
                         connection.state = ConnectionState::WaitingForEnq;
+                        log::info!("Transmission complete, ready for next transmission");
+
+                        // Break out of the loop - transmission is complete
+                        // The connection will be ready for the next transmission when it receives ENQ again
+                        break;
+                    } else {
+                        log::debug!(
+                            "Unexpected byte in WaitingForFrame: 0x{:02X} ('{}')",
+                            byte,
+                            byte as char
+                        );
                     }
                 }
                 ConnectionState::ProcessingFrame => {
                     connection.current_frame.push(byte);
 
                     if byte == ASTM_ETX || byte == ASTM_ETB {
-                        // End of frame
+                        log::debug!("Received ETX or ETB, waiting for checksum");
+                        connection.state = ConnectionState::WaitingForChecksum;
+                    }
+                }
+                ConnectionState::WaitingForChecksum => {
+                    // Store checksum byte
+                    connection.current_frame.push(byte);
+                    log::debug!("Received checksum: 0x{:02X}, waiting for CR", byte);
+                    connection.state = ConnectionState::WaitingForCR;
+                }
+                ConnectionState::WaitingForCR => {
+                    if byte == ASTM_CR {
+                        connection.current_frame.push(byte);
+                        log::debug!("Received CR, waiting for LF");
+                        connection.state = ConnectionState::WaitingForLF;
+                    } else {
+                        log::error!("Expected CR (0x0D), got 0x{:02X}", byte);
+                        return Err("Invalid frame format: expected CR".to_string());
+                    }
+                }
+                ConnectionState::WaitingForLF => {
+                    if byte == ASTM_LF {
+                        connection.current_frame.push(byte);
+                        log::debug!("Received LF, processing complete frame");
+
+                        // Now process the complete frame
                         if let Err(e) = Self::process_frame(connection, event_sender).await {
                             // Send NAK on error
                             connection
@@ -505,12 +548,21 @@ impl<R: Runtime> AutoQuantMerilService<R> {
                             .await
                             .map_err(|e| format!("Failed to send ACK: {}", e))?;
 
+                        connection.current_frame.clear();
                         connection.state = ConnectionState::WaitingForFrame;
+                    } else {
+                        log::error!("Expected LF (0x0A), got 0x{:02X}", byte);
+                        return Err("Invalid frame format: expected LF".to_string());
                     }
                 }
                 ConnectionState::Complete => {
-                    // Should not reach here
-                    log::warn!("Unexpected data in Complete state");
+                    // Should not reach here - transmission is complete
+                    log::warn!(
+                        "Unexpected data after EOT in Complete state: 0x{:02X}",
+                        byte
+                    );
+                    // Break out of the loop as transmission is complete
+                    break;
                 }
             }
         }
@@ -523,6 +575,25 @@ impl<R: Runtime> AutoQuantMerilService<R> {
         connection: &mut Connection,
         event_sender: &mpsc::Sender<MerilEvent>,
     ) -> Result<(), String> {
+        // Debug: Log the raw frame
+        log::debug!("Processing frame: {:?}", connection.current_frame);
+
+        // Log frame structure for debugging
+        if connection.current_frame.len() >= 6 {
+            let frame_number = connection.current_frame[0];
+            let stx = connection.current_frame[1];
+            let etx_pos = connection.current_frame.len() - 4;
+            let etx = connection.current_frame[etx_pos];
+            let checksum = connection.current_frame[connection.current_frame.len() - 3];
+            let cr = connection.current_frame[connection.current_frame.len() - 2];
+            let lf = connection.current_frame[connection.current_frame.len() - 1];
+
+            log::debug!(
+                "Frame structure: FN=0x{:02X}, STX=0x{:02X}, ETX=0x{:02X}, CS=0x{:02X}, CR=0x{:02X}, LF=0x{:02X}",
+                frame_number, stx, etx, checksum, cr, lf
+            );
+        }
+
         // Validate checksum
         if !Self::validate_checksum(&connection.current_frame) {
             log::error!(
@@ -531,7 +602,7 @@ impl<R: Runtime> AutoQuantMerilService<R> {
             );
         }
 
-        // Extract frame data (remove STX, ETX/ETB, checksum, CR, LF)
+        // Extract frame data (remove frame number, STX, ETX, checksum, CR, LF)
         let frame_data = Self::extract_frame_data(&connection.current_frame)?;
 
         // Parse ASTM record
@@ -583,6 +654,7 @@ impl<R: Runtime> AutoQuantMerilService<R> {
                 match record_type.as_str() {
                     "Patient" => {
                         if let Ok(patient) = Self::parse_patient_record(&frame_data) {
+                            log::debug!("Patient data: {:?}", patient);
                             patient_data = Some(patient);
                         }
                     }
@@ -616,14 +688,21 @@ impl<R: Runtime> AutoQuantMerilService<R> {
 
     /// Validates ASTM frame checksum
     fn validate_checksum(frame: &[u8]) -> bool {
-        if frame.len() < 4 {
+        if frame.len() < 6 {
             return false;
         }
 
-        // Simple checksum validation (modulo 8 of sum)
+        // ASTM frame format: FrameNumber + STX + Data + ETX + Checksum + CR + LF
+        // Frame number is ASCII digit (0x30-0x39)
+        // STX is at index 1
+        // ETX is at frame.len() - 4
+        // Checksum is at frame.len() - 3
+        // CR is at frame.len() - 2
+        // LF is at frame.len() - 1
+
         let mut sum = 0u8;
-        let start_idx = 1; // Skip STX
-        let end_idx = frame.len() - 4; // Before ETX/ETB, checksum, CR, LF
+        let start_idx = 0; // Start from frame number (including it)
+        let end_idx = frame.len() - 3; // End at ETX (inclusive)
 
         for &byte in &frame[start_idx..end_idx] {
             sum = sum.wrapping_add(byte);
@@ -632,20 +711,56 @@ impl<R: Runtime> AutoQuantMerilService<R> {
         let expected_checksum = sum % 8;
         let actual_checksum = frame[frame.len() - 3]; // Checksum byte
 
+        log::debug!(
+            "Checksum validation: sum={}, expected={}, actual={}, valid={}",
+            sum,
+            expected_checksum,
+            actual_checksum,
+            expected_checksum == actual_checksum
+        );
+
         expected_checksum == actual_checksum
     }
 
     /// Extracts frame data from ASTM frame
     fn extract_frame_data(frame: &[u8]) -> Result<Vec<u8>, String> {
-        if frame.len() < 4 {
+        if frame.len() < 6 {
             return Err("Frame too short".to_string());
         }
 
-        // Remove STX, ETX/ETB, checksum, CR, LF
-        let start_idx = 1; // After STX
-        let end_idx = frame.len() - 4; // Before ETX/ETB, checksum, CR, LF
+        // Find STX and ETX positions
+        let stx_pos = frame.iter().position(|&b| b == ASTM_STX);
+        let etx_pos = frame.iter().position(|&b| b == ASTM_ETX);
 
-        Ok(frame[start_idx..end_idx].to_vec())
+        match (stx_pos, etx_pos) {
+            (Some(stx), Some(etx)) if stx < etx => {
+                // Extract data between STX and ETX (exclusive)
+                let start_idx = stx + 1; // After STX
+                let end_idx = etx; // Before ETX
+
+                let extracted_data = frame[start_idx..end_idx].to_vec();
+
+                // Verify frame ends with CR and LF
+                if frame.len() >= 2 {
+                    let cr_pos = frame.len() - 2;
+                    let lf_pos = frame.len() - 1;
+
+                    if frame[cr_pos] != ASTM_CR || frame[lf_pos] != ASTM_LF {
+                        log::warn!(
+                            "Frame does not end with CR+LF: CR=0x{:02X}, LF=0x{:02X}",
+                            frame[cr_pos],
+                            frame[lf_pos]
+                        );
+                    }
+                }
+
+                Ok(extracted_data)
+            }
+            _ => {
+                log::error!("Could not find STX or ETX in frame: {:?}", frame);
+                Err("Invalid frame structure: missing STX or ETX".to_string())
+            }
+        }
     }
 
     /// Parses ASTM record type
@@ -654,7 +769,7 @@ impl<R: Runtime> AutoQuantMerilService<R> {
             return Err("Empty frame data".to_string());
         }
 
-        let first_char = frame_data[0] as char;
+        let first_char: char = frame_data[1] as char;
         let record_type = match first_char {
             'H' => "Header",
             'P' => "Patient",
@@ -665,6 +780,8 @@ impl<R: Runtime> AutoQuantMerilService<R> {
             'L' => "Terminator",
             _ => "Unknown",
         };
+
+        log::debug!("Parsing record type: {}", record_type);
 
         Ok(record_type.to_string())
     }

@@ -164,7 +164,7 @@ impl<R: Runtime> AppState<R> {
             baud_rate: None,
             protocol: crate::models::Protocol::Astm,
             status: crate::models::AnalyzerStatus::Inactive,
-            activate_on_start: false, // Don't auto-start by default
+            activate_on_start: true, // Don't auto-start by default
             created_at: Utc::now(),
             updated_at: Utc::now(),
         }
