@@ -6,6 +6,7 @@ pub mod api;
 pub mod app_state;
 pub mod migrations;
 pub mod models;
+pub mod protocol;
 pub mod services;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/

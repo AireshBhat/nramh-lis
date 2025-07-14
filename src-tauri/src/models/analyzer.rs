@@ -56,6 +56,7 @@ impl From<&str> for AnalyzerStatus {
 pub enum Protocol {
     Astm,
     Hl7,
+    Hl7V24, // HL7 version 2.4 for BF-6500 Hematology analyzer
 }
 
 impl ToString for Protocol {
@@ -63,6 +64,7 @@ impl ToString for Protocol {
         match self {
             Protocol::Astm => "ASTM".to_string(),
             Protocol::Hl7 => "HL7".to_string(),
+            Protocol::Hl7V24 => "HL7_V24".to_string(),
         }
     }
 }
@@ -71,6 +73,7 @@ impl From<&str> for Protocol {
     fn from(s: &str) -> Self {
         match s.to_uppercase().as_str() {
             "HL7" => Protocol::Hl7,
+            "HL7_V24" => Protocol::Hl7V24,
             _ => Protocol::Astm,
         }
     }

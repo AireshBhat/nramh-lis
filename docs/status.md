@@ -1,328 +1,303 @@
-# Lab Machine Interface System - Implementation Status & Plan
+# BF-6500 Hematology Analyzer Implementation Status
 
-## Project Status Overview
+## Project Overview
+Implementation of a BF-6500 Hematology analyzer interface using HL7 protocol, following the existing Meril AutoQuant ASTM implementation pattern.
 
-**Current Phase**: Planning Complete ✅  
-**Target**: POC in 5 hours of focused development  
-**Priority**: MVP functionality first, enhancements later
+## Current Status: Planning Complete ✅
+**Last Updated:** 2025-07-14
 
-## 🎯 Success Criteria (5-Hour Target)
+---
 
-- [x] Basic Tauri app with frontend
-- [ ] Single machine connection (preferably mock/simulator)
-- [ ] Simple message parsing (HL7 or ASTM)
-- [ ] Basic UI to show connection status and messages
-- [ ] JSON configuration loading
+## Implementation Phases
 
-## Implementation Roadmap
+### Phase 1: Core Infrastructure Setup ✅
+**Status:** Complete  
+**Estimated Duration:** 2-3 days
 
-### Phase 1: Foundation (HIGH Priority - 2 hours)
+#### Task 1.1: Create HL7 Protocol Foundation ✅
+- [x] **Subtask 1.1.1:** Create `src-tauri/src/protocol/` directory structure
+- [x] **Subtask 1.1.2:** Implement `hl7_parser.rs` with core HL7 v2.4 parsing
+- [x] **Subtask 1.1.3:** Implement MLLP (Minimal Lower Layer Protocol) frame handling
+- [x] **Subtask 1.1.4:** Add HL7 message validation and acknowledgment (ACK/NAK)
+- [x] **Subtask 1.1.5:** Create segment parsers (MSH, PID, PV1, OBR, OBX)
+- [x] **Subtask 1.1.6:** Add unit tests for HL7 parsing functions
 
-#### 1.1 Project Setup (30 minutes)
-- [x] **CRITICAL** Initialize Tauri project
-  ```bash
-  cargo install tauri-cli
-  cargo tauri init
-  ```
-- [x] **CRITICAL** Setup basic React frontend
-- [x] **CRITICAL** Configure Tauri commands structure
-- [x] **CRITICAL** Setup basic folder structure
+**Dependencies:** None  
+**Key Files:**
+- `src-tauri/src/protocol/mod.rs` ✅
+- `src-tauri/src/protocol/hl7_parser.rs` ✅
 
-**Files to create:**
-- `src-tauri/src/main.rs`
-- `src-tauri/src/lib.rs`
-- `src/App.tsx` (basic React app)
-- `src-tauri/tauri.conf.json`
+#### Task 1.2: Define BF-6500 Data Models ✅
+- [x] **Subtask 1.2.1:** Extend `Protocol` enum in `models/analyzer.rs` to include HL7
+- [x] **Subtask 1.2.2:** Create `BF6500Event` enum similar to `MerilEvent`
+- [x] **Subtask 1.2.3:** Define `HematologyResult` struct for test results
+- [x] **Subtask 1.2.4:** Create `HL7Settings` configuration struct
+- [x] **Subtask 1.2.5:** Add hematology-specific data models
 
-#### 1.2 Core Data Models (30 minutes)
-- [ ] **HIGH** Create basic data structures
-  - `models/machine.rs`
-  - `models/message.rs`
-  - `models/config.rs`
-- [ ] **HIGH** Implement serialization/deserialization
-- [ ] **HIGH** Basic error types
+**Dependencies:** Task 1.1 ✅  
+**Key Files:**
+- `src-tauri/src/models/analyzer.rs` ✅
+- `src-tauri/src/models/hematology.rs` ✅
 
-**Priority Models:**
-```rust
-// Minimal for POC
-pub struct MachineConfig {
-    pub id: String,
-    pub name: String,
-    pub protocol: Protocol,
-    pub transport: Transport,
-}
+---
 
-pub struct LabMessage {
-    pub message_id: String,
-    pub timestamp: DateTime<Utc>,
-    pub raw_data: String,
-    pub parsed: bool,
-}
-```
+### Phase 2: Service Implementation 🚧
+**Status:** Not Started  
+**Estimated Duration:** 3-4 days
 
-#### 1.3 Configuration System (30 minutes)
-- [ ] **HIGH** JSON configuration loading
-- [ ] **HIGH** Basic configuration validation
-- [ ] **HIGH** Default configuration generation
+#### Task 2.1: Create BF-6500 Service
+- [ ] **Subtask 2.1.1:** Create `bf6500_service.rs` following `autoquant_meril.rs` pattern
+- [ ] **Subtask 2.1.2:** Implement TCP listener for HL7 connections
+- [ ] **Subtask 2.1.3:** Add connection state management for HL7 MLLP protocol
+- [ ] **Subtask 2.1.4:** Create HL7 message processing pipeline
+- [ ] **Subtask 2.1.5:** Implement event emission for frontend communication
+- [ ] **Subtask 2.1.6:** Add service lifecycle management (start/stop)
 
-**Config Structure:**
+**Dependencies:** Phase 1 complete  
+**Key Files:**
+- `src-tauri/src/services/bf6500_service.rs` (new)
+- `src-tauri/src/services/mod.rs` (update)
+
+#### Task 2.2: Configuration Management
+- [ ] **Subtask 2.2.1:** Create `bf6500_handler.rs` command handlers
+- [ ] **Subtask 2.2.2:** Implement configuration validation for HL7 protocol
+- [ ] **Subtask 2.2.3:** Add service start/stop Tauri commands
+- [ ] **Subtask 2.2.4:** Create status monitoring commands specific to BF-6500
+- [ ] **Subtask 2.2.5:** Implement configuration persistence to JSON store
+
+**Dependencies:** Task 2.1  
+**Key Files:**
+- `src-tauri/src/api/commands/bf6500_handler.rs` (new)
+- `src-tauri/src/api/commands/mod.rs` (update)
+
+---
+
+### Phase 3: Protocol Implementation 🚧
+**Status:** Not Started  
+**Estimated Duration:** 4-5 days
+
+#### Task 3.1: HL7 Message Processing
+- [ ] **Subtask 3.1.1:** Implement MLLP framing (`<VT>message<FS><CR>`)
+- [ ] **Subtask 3.1.2:** Create pipe-delimited HL7 segment parser
+- [ ] **Subtask 3.1.3:** Implement HL7 ACK/NAK response generation
+- [ ] **Subtask 3.1.4:** Add hematology result extraction from OBX segments
+- [ ] **Subtask 3.1.5:** Handle different HL7 message types (ORU^R01, OUL^R21)
+- [ ] **Subtask 3.1.6:** Implement error handling and logging
+
+**Dependencies:** Phase 2 complete  
+**Key Components:**
+- MLLP protocol handling
+- HL7 v2.4 message parsing
+- Hematology parameter extraction
+
+#### Task 3.2: Connection Handling
+- [ ] **Subtask 3.2.1:** Implement HL7-specific handshake procedures
+- [ ] **Subtask 3.2.2:** Handle MLLP protocol requirements
+- [ ] **Subtask 3.2.3:** Manage connection timeouts and retries
+- [ ] **Subtask 3.2.4:** Add connection monitoring and health checks
+- [ ] **Subtask 3.2.5:** Implement graceful connection cleanup
+
+**Dependencies:** Task 3.1  
+**Key Features:**
+- Connection state management
+- Timeout handling
+- Error recovery
+
+---
+
+### Phase 4: Integration 🚧
+**Status:** Not Started  
+**Estimated Duration:** 2-3 days
+
+#### Task 4.1: App State Integration
+- [ ] **Subtask 4.1.1:** Extend `AppState` to include BF-6500 service
+- [ ] **Subtask 4.1.2:** Add service initialization in app startup
+- [ ] **Subtask 4.1.3:** Implement service lifecycle management
+- [ ] **Subtask 4.1.4:** Add auto-start configuration support
+- [ ] **Subtask 4.1.5:** Create default BF-6500 analyzer configuration
+
+**Dependencies:** Phase 3 complete  
+**Key Files:**
+- `src-tauri/src/app_state.rs` (update)
+- `src-tauri/src/services/bootup.rs` (update)
+
+#### Task 4.2: Frontend Events
+- [ ] **Subtask 4.2.1:** Define BF-6500 event types for frontend
+- [ ] **Subtask 4.2.2:** Implement event emission in service
+- [ ] **Subtask 4.2.3:** Add event handling in app state
+- [ ] **Subtask 4.2.4:** Create frontend event listeners (if needed)
+- [ ] **Subtask 4.2.5:** Test event flow from analyzer to frontend
+
+**Dependencies:** Task 4.1  
+**Event Types:**
+- `bf6500:analyzer-connected`
+- `bf6500:hl7-message`
+- `bf6500:lab-results`
+- `bf6500:analyzer-status-updated`
+- `bf6500:error`
+
+---
+
+### Phase 5: Testing & Validation 🚧
+**Status:** Not Started  
+**Estimated Duration:** 2-3 days
+
+#### Task 5.1: Unit Testing
+- [ ] **Subtask 5.1.1:** Create unit tests for HL7 parser
+- [ ] **Subtask 5.1.2:** Test MLLP frame handling
+- [ ] **Subtask 5.1.3:** Test hematology result parsing
+- [ ] **Subtask 5.1.4:** Test configuration validation
+- [ ] **Subtask 5.1.5:** Test service lifecycle operations
+
+**Dependencies:** Phase 4 complete  
+**Test Files:**
+- `src-tauri/src/protocol/hl7_parser_tests.rs`
+- `src-tauri/src/services/bf6500_service_tests.rs`
+
+#### Task 5.2: Integration Testing
+- [ ] **Subtask 5.2.1:** Create mock HL7 server for testing
+- [ ] **Subtask 5.2.2:** Test end-to-end message flow
+- [ ] **Subtask 5.2.3:** Test error scenarios and recovery
+- [ ] **Subtask 5.2.4:** Test configuration persistence
+- [ ] **Subtask 5.2.5:** Performance testing with multiple connections
+
+**Dependencies:** Task 5.1  
+**Test Components:**
+- Mock HL7 message generator
+- Connection simulation
+- Error injection testing
+
+---
+
+## Key Technical Specifications
+
+### HL7 Protocol Details
+- **Version:** HL7 v2.4
+- **Transport:** TCP/IP with MLLP
+- **Message Types:** ORU^R01 (Observation Result), OUL^R21 (Lab Observation)
+- **Encoding:** UTF-8
+- **Frame Format:** `<VT>message<FS><CR>`
+
+### Configuration Parameters
 ```json
 {
-  "machines": [
-    {
-      "id": "TEST-001",
-      "name": "Test Machine",
-      "protocol": "HL7",
-      "transport": {
-        "type": "TCP",
-        "host": "localhost",
-        "port": 9100
-      }
-    }
-  ]
+  "id": "bf6500-001",
+  "name": "BF-6500 Hematology Analyzer",
+  "protocol": "HL7_V24",
+  "connection_type": "TcpIp",
+  "ip_address": "192.168.1.100",
+  "port": 9100,
+  "hl7_settings": {
+    "mllp_enabled": true,
+    "timeout_ms": 10000,
+    "retry_attempts": 3,
+    "encoding": "UTF-8"
+  }
 }
 ```
 
-#### 1.4 Basic API Layer (30 minutes)
-- [ ] **HIGH** Create Tauri command handlers
-  - `get_config()`
-  - `add_machine()`
-  - `get_machines()`
-  - `connect_machine()`
+### Hematology Parameters
+- WBC (White Blood Cells)
+- RBC (Red Blood Cells)
+- HGB (Hemoglobin)
+- HCT (Hematocrit)
+- MCV (Mean Corpuscular Volume)
+- MCH (Mean Corpuscular Hemoglobin)
+- MCHC (Mean Corpuscular Hemoglobin Concentration)
+- PLT (Platelets)
 
-### Phase 2: Core Communication (HIGH Priority - 1.5 hours)
+---
 
-#### 2.1 Protocol Foundation (45 minutes)
-- [ ] **HIGH** Basic HL7 message parser (simpler than ASTM)
-- [ ] **HIGH** Message validation structure
-- [ ] **MEDIUM** Simple ASTM parser (if time permits)
+## File Structure
 
-**Focus on HL7 first** - simpler structure:
+### New Files to Create
 ```
-MSH|^~\&|Device||||20240101120000||ORU^R01|123|P|2.4
-PID||12345|||John^Doe
-OBX|1|NM|GLU||150|mg/dL
-```
-
-#### 2.2 Communication Manager (45 minutes)
-- [ ] **HIGH** TCP socket connection (easier to test)
-- [ ] **MEDIUM** Serial port connection (if time permits)
-- [ ] **HIGH** Basic connection state management
-- [ ] **HIGH** Message receiving and parsing
-
-**MVP Implementation:**
-```rust
-pub struct SimpleConnection {
-    pub machine_id: String,
-    pub status: ConnectionStatus,
-    // Start with TCP for easier testing
-}
+src-tauri/src/
+├── protocol/
+│   ├── mod.rs
+│   └── hl7_parser.rs
+├── services/
+│   └── bf6500_service.rs
+├── api/commands/
+│   └── bf6500_handler.rs
+└── models/
+    └── hematology.rs
 ```
 
-### Phase 3: UI Integration (HIGH Priority - 1 hour)
+### Files to Modify
+```
+src-tauri/src/
+├── app_state.rs               # Add BF-6500 service integration
+├── services/
+│   ├── mod.rs                 # Export new service
+│   └── bootup.rs             # Add BF-6500 initialization
+├── api/commands/
+│   └── mod.rs                # Export new commands
+└── models/
+    ├── mod.rs                # Export new models
+    └── analyzer.rs           # Add HL7 protocol support
+```
 
-#### 3.1 Basic React Components (30 minutes)
-- [ ] **HIGH** Machine list component
-- [ ] **HIGH** Connection status indicator
-- [ ] **HIGH** Message log viewer
-- [ ] **HIGH** Basic controls (connect/disconnect)
+---
 
-#### 3.2 Tauri Integration (30 minutes)
-- [ ] **HIGH** Command invocation from frontend
-- [ ] **HIGH** Real-time status updates
-- [ ] **HIGH** Error display and handling
+## Dependencies & Requirements
 
-### Phase 4: Testing & Demo (MEDIUM Priority - 30 minutes)
+### Rust Crates Needed
+- `tokio` (async runtime) - ✅ Already available
+- `serde` (serialization) - ✅ Already available
+- `serde_json` (JSON handling) - ✅ Already available
+- `chrono` (date/time) - ✅ Already available
+- `uuid` (ID generation) - ✅ Already available
+- `log` (logging) - ✅ Already available
 
-#### 4.1 Mock/Simulator (20 minutes)
-- [ ] **HIGH** Create simple TCP server that sends HL7 messages
-- [ ] **HIGH** Test data for demo
+### External Requirements
+- BF-6500 LIS documentation (specific HL7 details)
+- Network access to BF-6500 analyzer
+- Test data samples for validation
 
-#### 4.2 Integration Testing (10 minutes)
-- [ ] **HIGH** End-to-end test: config → connect → receive → display
+---
 
-## Detailed Task Breakdown
-
-### Week 1: POC Development (40 hours total)
-
-#### Day 1 (8 hours) - Foundation
-- **Hours 1-2**: Project setup and basic structure
-- **Hours 3-4**: Data models and configuration system
-- **Hours 5-6**: Basic Tauri commands and API layer
-- **Hours 7-8**: Initial frontend structure
-
-#### Day 2 (8 hours) - Core Communication
-- **Hours 1-3**: HL7 protocol parsing implementation
-- **Hours 4-6**: TCP communication manager
-- **Hours 7-8**: Connection state management
-
-#### Day 3 (8 hours) - UI and Integration
-- **Hours 1-4**: React components and UI
-- **Hours 5-6**: Tauri-React integration
-- **Hours 7-8**: Basic testing and debugging
-
-#### Day 4 (8 hours) - Testing and Polish
-- **Hours 1-2**: Mock server for testing
-- **Hours 3-4**: End-to-end testing
-- **Hours 5-6**: Error handling improvements
-- **Hours 7-8**: Documentation and demo prep
-
-#### Day 5 (8 hours) - Enhancement and ASTM
-- **Hours 1-4**: ASTM protocol implementation
-- **Hours 5-6**: Serial communication
-- **Hours 7-8**: Additional features and polish
-
-### Implementation Priority Matrix
-
-#### CRITICAL (Must have for POC)
-1. ✅ Basic Tauri app structure
-2. ⏳ Single machine configuration
-3. ⏳ TCP connection to mock server
-4. ⏳ Basic HL7 message parsing
-5. ⏳ Simple UI to show status
-
-#### HIGH (Important for demo)
-1. ⏳ Multiple machine support
-2. ⏳ Message history display
-3. ⏳ Error handling and display
-4. ⏳ Configuration editing via UI
-5. ⏳ Real-time status updates
-
-#### MEDIUM (Nice to have)
-1. ⏳ ASTM protocol support
-2. ⏳ Serial port communication
-3. ⏳ Advanced message validation
-4. ⏳ Export functionality
-5. ⏳ System metrics
-
-#### LOW (Future enhancements)
-1. ⏳ HIS integration
-2. ⏳ Advanced error recovery
-3. ⏳ Performance optimizations
-4. ⏳ Comprehensive testing
-5. ⏳ Production deployment features
-
-## Risk Assessment & Mitigation
+## Risk Assessment
 
 ### High Risk Items
-1. **Serial port communication complexity**
-   - *Mitigation*: Start with TCP, add serial later
-2. **Protocol parsing complexity**
-   - *Mitigation*: Start with HL7 (simpler), focus on basic parsing
-3. **Real lab machine integration**
-   - *Mitigation*: Use mock servers for initial development
+- **HL7 Protocol Complexity:** HL7 v2.4 has many variations and optional fields
+- **Device Compatibility:** BF-6500 may have vendor-specific HL7 extensions
+- **Network Configuration:** TCP/IP connectivity issues with lab equipment
 
-### Medium Risk Items
-1. **Tauri learning curve**
-   - *Mitigation*: Focus on basic commands first
-2. **Cross-platform compatibility**
-   - *Mitigation*: Develop on primary target platform first
+### Mitigation Strategies
+- Create comprehensive test suite with mock server
+- Implement flexible parsing that handles variations
+- Add detailed logging for troubleshooting
+- Follow existing ASTM implementation patterns
 
-## Development Environment Setup
+---
 
-### Prerequisites
-```bash
-# Install Rust
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+## Success Criteria
 
-# Install Node.js and npm
-# Install Tauri CLI
-cargo install tauri-cli
+### Functional Requirements
+- [ ] BF-6500 analyzer connects successfully via TCP/IP
+- [ ] HL7 messages are parsed correctly
+- [ ] Hematology results are extracted and processed
+- [ ] Frontend receives real-time updates
+- [ ] Configuration is persisted and manageable
+- [ ] Service can start/stop reliably
 
-# Install additional dependencies
-cargo install tokio-serial  # For serial communication
-```
+### Technical Requirements
+- [ ] Code follows existing project patterns
+- [ ] Comprehensive error handling
+- [ ] Unit test coverage >80%
+- [ ] Performance: Handle multiple simultaneous connections
+- [ ] Memory: No memory leaks in long-running service
 
-### Project Structure
-```
-lab-machine-interface/
-├── src-tauri/              # Rust backend
-│   ├── src/
-│   │   ├── main.rs
-│   │   ├── lib.rs
-│   │   ├── api/            # Tauri commands
-│   │   ├── core/           # Business logic
-│   │   ├── protocol/       # Protocol handlers
-│   │   └── models/         # Data structures
-│   ├── Cargo.toml
-│   └── tauri.conf.json
-├── src/                    # React frontend
-│   ├── components/
-│   ├── hooks/
-│   ├── services/
-│   └── App.tsx
-├── config/                 # Configuration files
-│   ├── machines.json
-│   └── system.json
-└── test-data/             # Mock data for testing
-    └── sample-messages.json
-```
-
-## Testing Strategy for POC
-
-### Unit Tests (Minimal for POC)
-- [ ] Configuration loading/saving
-- [ ] Basic message parsing
-- [ ] Connection state management
-
-### Integration Tests
-- [ ] **CRITICAL** End-to-end: UI → Backend → Mock machine
-- [ ] Configuration changes reflected in UI
-- [ ] Error handling and display
-
-### Manual Testing Checklist
-- [ ] App starts without errors
-- [ ] Can add/remove machine configuration
-- [ ] Can connect to mock TCP server
-- [ ] Messages displayed in UI
-- [ ] Errors handled gracefully
-- [ ] Configuration persists between restarts
-
-## Success Metrics
-
-### POC Success (5-hour milestone)
-- ✅ Application launches
-- ⏳ Single machine connection works
-- ⏳ Basic message parsing functional
-- ⏳ UI shows connection status
-- ⏳ Can receive and display messages
-
-### Demo Ready (Day 3 milestone)
-- ⏳ Multiple machine support
-- ⏳ Real-time status updates
-- ⏳ Message history and filtering
-- ⏳ Error handling and recovery
-- ⏳ Professional UI/UX
-
-### Production Ready (Week 2+ milestone)
-- ⏳ Comprehensive error handling
-- ⏳ Full protocol compliance
-- ⏳ Performance optimization
-- ⏳ Security implementation
-- ⏳ Comprehensive testing
+---
 
 ## Next Steps
 
-1. **Immediate (Today)**:
-   - Initialize Tauri project
-   - Setup basic folder structure
-   - Create core data models
+1. **Extract BF-6500 Specifications** - Review PDF documentation for exact HL7 details
+2. **Start Phase 1** - Create HL7 protocol foundation
+3. **Iterative Development** - Complete phases sequentially with testing
+4. **Integration Testing** - Test with actual BF-6500 hardware when available
 
-2. **This Week**:
-   - Complete POC implementation
-   - Create mock testing environment
-   - Basic UI implementation
+---
 
-3. **Next Week**:
-   - Real machine integration
-   - Advanced features
-   - Production readiness
-
-## Notes and Considerations
-
-- **Focus on HL7 first** - more standardized and easier to parse
-- **Use TCP for initial testing** - easier to debug than serial
-- **Keep UI simple initially** - functional over beautiful for POC
-- **Mock everything external** - don't depend on real machines for POC
-- **Incremental development** - get basic end-to-end working first
-- **Document assumptions** - what works, what doesn't, what's mocked
+*This status document will be updated as implementation progresses.*
