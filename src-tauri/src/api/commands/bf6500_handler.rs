@@ -3,7 +3,7 @@ use crate::models::hematology::HL7Settings;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 use tauri_plugin_store::StoreExt;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -103,59 +103,28 @@ fn validate_hl7_settings(settings: &HL7Settings) -> Result<(), String> {
 pub async fn fetch_bf6500_config<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
 ) -> BF6500ConfigResponse {
-    // Get the store first to check if we have saved configuration
-    let store = match app.store("bf6500.json") {
-        Ok(store) => store,
-        Err(e) => {
-            log::error!("Failed to get bf6500 store: {}", e);
-            return BF6500ConfigResponse {
-                success: false,
-                analyzer: None,
-                hl7_settings: None,
-                error_message: Some(format!("Failed to access configuration store: {}", e)),
-            };
-        }
-    };
+    // Get the AppState from AppData
+    let app_state = app.state::<crate::app_state::AppState<R>>();
 
-    // Try to get configuration from store
-    let config_value = store.get("config");
-    match config_value {
-        Some(value) => {
-            // Try to deserialize the stored value
-            match serde_json::from_value::<BF6500StoreData>(value.clone()) {
-                Ok(store_data) => {
-                    log::info!("Successfully fetched BF-6500 configuration from store");
-                    BF6500ConfigResponse {
-                        success: true,
-                        analyzer: store_data.analyzer,
-                        hl7_settings: store_data.hl7_settings,
-                        error_message: None,
-                    }
-                }
-                Err(e) => {
-                    log::error!("Failed to deserialize BF-6500 configuration: {}", e);
-                    BF6500ConfigResponse {
-                        success: false,
-                        analyzer: None,
-                        hl7_settings: None,
-                        error_message: Some(format!("Invalid configuration format: {}", e)),
-                    }
-                }
-            }
-        }
-        None => {
-            // No configuration found, return default
-            log::info!("No BF-6500 configuration found, returning default");
-            let default_analyzer = create_default_bf6500_analyzer();
-            let default_hl7_settings = HL7Settings::default();
-            
-            BF6500ConfigResponse {
-                success: true,
-                analyzer: Some(default_analyzer),
-                hl7_settings: Some(default_hl7_settings),
-                error_message: Some("Using default configuration. Please configure the analyzer.".to_string()),
-            }
-        }
+    // Get analyzer config from service
+    let analyzer = app_state
+        .get_bf6500_service()
+        .get_analyzer_config()
+        .await;
+
+    log::info!(
+        "Successfully fetched BF-6500 configuration from service for analyzer: {}",
+        analyzer.id
+    );
+
+    // For now, return default HL7 settings since they're not stored in the analyzer model
+    let default_hl7_settings = HL7Settings::default();
+
+    BF6500ConfigResponse {
+        success: true,
+        analyzer: Some(analyzer),
+        hl7_settings: Some(default_hl7_settings),
+        error_message: None,
     }
 }
 
@@ -258,16 +227,19 @@ pub async fn update_bf6500_config<R: tauri::Runtime>(
 /// Gets the status of the BF6500 service
 #[tauri::command]
 pub async fn get_bf6500_service_status<R: tauri::Runtime>(
-    _app: tauri::AppHandle<R>,
+    app: tauri::AppHandle<R>,
 ) -> Result<BF6500ServiceStatus, String> {
-    // TODO: Implement when BF6500 service is integrated into AppState
-    // For now, return a placeholder status
-    log::warn!("get_bf6500_service_status: Service integration not yet implemented");
+    // Get the AppState from AppData
+    let app_state = app.state::<crate::app_state::AppState<R>>();
+    let service = app_state.get_bf6500_service();
+    let status = service.get_status().await;
+    let connections_count = service.get_connections_count().await;
+    let is_running = status == AnalyzerStatus::Active;
     
     Ok(BF6500ServiceStatus {
-        is_running: false,
-        connections_count: 0,
-        analyzer_status: AnalyzerStatus::Inactive,
+        is_running,
+        connections_count,
+        analyzer_status: status,
     })
 }
 
@@ -276,18 +248,45 @@ pub async fn get_bf6500_service_status<R: tauri::Runtime>(
 pub async fn start_bf6500_service<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
 ) -> Result<(), String> {
-    // TODO: Implement when BF6500 service is integrated into AppState
-    log::warn!("start_bf6500_service: Service integration not yet implemented");
-    
-    // Emit placeholder event to frontend
-    let _ = app.emit(
-        "bf6500:service-started",
-        serde_json::json!({
-            "timestamp": chrono::Utc::now()
-        }),
-    );
-    
-    Err("BF-6500 service integration not yet implemented".to_string())
+    // Get the AppState from AppData
+    let app_state = app.state::<crate::app_state::AppState<R>>();
+
+    // Note: We need mutable access to start the service
+    // For now, we'll use a workaround by cloning the service and starting it
+    let service = app_state.get_bf6500_service().clone();
+
+    log::info!("Starting BF-6500 service...");
+
+    // Start the service
+    match service.start().await {
+        Ok(()) => {
+            log::info!("BF-6500 service started successfully");
+
+            // Emit event to frontend
+            let _ = app.emit(
+                "bf6500:service-started",
+                serde_json::json!({
+                    "timestamp": chrono::Utc::now()
+                }),
+            );
+
+            Ok(())
+        }
+        Err(e) => {
+            log::error!("Failed to start BF-6500 service: {}", e);
+
+            // Emit error event to frontend
+            let _ = app.emit(
+                "bf6500:service-error",
+                serde_json::json!({
+                    "error": e.clone(),
+                    "timestamp": chrono::Utc::now()
+                }),
+            );
+
+            Err(e)
+        }
+    }
 }
 
 /// Stops the BF6500 service
@@ -295,18 +294,45 @@ pub async fn start_bf6500_service<R: tauri::Runtime>(
 pub async fn stop_bf6500_service<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
 ) -> Result<(), String> {
-    // TODO: Implement when BF6500 service is integrated into AppState
-    log::warn!("stop_bf6500_service: Service integration not yet implemented");
-    
-    // Emit placeholder event to frontend
-    let _ = app.emit(
-        "bf6500:service-stopped",
-        serde_json::json!({
-            "timestamp": chrono::Utc::now()
-        }),
-    );
-    
-    Err("BF-6500 service integration not yet implemented".to_string())
+    // Get the AppState from AppData
+    let app_state = app.state::<crate::app_state::AppState<R>>();
+
+    // Note: We need mutable access to stop the service
+    // For now, we'll use a workaround by cloning the service and stopping it
+    let service = app_state.get_bf6500_service().clone();
+
+    log::info!("Stopping BF-6500 service...");
+
+    // Stop the service
+    match service.stop().await {
+        Ok(()) => {
+            log::info!("BF-6500 service stopped successfully");
+
+            // Emit event to frontend
+            let _ = app.emit(
+                "bf6500:service-stopped",
+                serde_json::json!({
+                    "timestamp": chrono::Utc::now()
+                }),
+            );
+
+            Ok(())
+        }
+        Err(e) => {
+            log::error!("Failed to stop BF-6500 service: {}", e);
+
+            // Emit error event to frontend
+            let _ = app.emit(
+                "bf6500:service-error",
+                serde_json::json!({
+                    "error": e.clone(),
+                    "timestamp": chrono::Utc::now()
+                }),
+            );
+
+            Err(e)
+        }
+    }
 }
 
 /// Creates a default BF-6500 analyzer configuration

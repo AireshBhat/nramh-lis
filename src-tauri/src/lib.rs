@@ -55,6 +55,11 @@ pub fn run() {
             api::commands::meril_handler::get_meril_service_status,
             api::commands::meril_handler::start_meril_service,
             api::commands::meril_handler::stop_meril_service,
+            api::commands::bf6500_handler::fetch_bf6500_config,
+            api::commands::bf6500_handler::update_bf6500_config,
+            api::commands::bf6500_handler::get_bf6500_service_status,
+            api::commands::bf6500_handler::start_bf6500_service,
+            api::commands::bf6500_handler::stop_bf6500_service,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

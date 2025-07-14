@@ -19,11 +19,33 @@ export interface AnalyzerResponse {
   updated_at: string;
 }
 
+// HL7 Settings type for BF-6500
+export interface HL7Settings {
+  timeout_ms: number;
+  retry_attempts: number;
+  encoding: string;
+  supported_message_types: string[];
+}
+
 // Meril-specific response types
 export interface MerilConfigResponse {
   success: boolean;
   analyzer?: AnalyzerResponse;
   error_message?: string;
+}
+
+// BF-6500 specific response types
+export interface BF6500ConfigResponse {
+  success: boolean;
+  analyzer?: AnalyzerResponse;
+  hl7_settings?: HL7Settings;
+  error_message?: string;
+}
+
+export interface BF6500ServiceStatus {
+  is_running: boolean;
+  connections_count: number;
+  analyzer_status: string;
 }
 
 // Helper function to convert AnalyzerResponse to frontend Analyzer type
@@ -47,17 +69,39 @@ export function convertAnalyzerResponse(response: AnalyzerResponse) {
   };
 }
 
-// Simple Meril command
+// Meril commands
 export const fetchMerilConfig = async (): Promise<MerilConfigResponse> => {
   return invoke('fetch_meril_config');
 };
 
-// Start Meril service command
 export const startMerilService = async (): Promise<void> => {
   return invoke('start_meril_service');
 };
 
-// Stop Meril service command
 export const stopMerilService = async (): Promise<void> => {
   return invoke('stop_meril_service');
+};
+
+// BF-6500 commands
+export const fetchBF6500Config = async (): Promise<BF6500ConfigResponse> => {
+  return invoke('fetch_bf6500_config');
+};
+
+export const updateBF6500Config = async (
+  analyzer: any,
+  hl7Settings: HL7Settings
+): Promise<BF6500ConfigResponse> => {
+  return invoke('update_bf6500_config', { analyzer, hl7_settings: hl7Settings });
+};
+
+export const getBF6500ServiceStatus = async (): Promise<BF6500ServiceStatus> => {
+  return invoke('get_bf6500_service_status');
+};
+
+export const startBF6500Service = async (): Promise<void> => {
+  return invoke('start_bf6500_service');
+};
+
+export const stopBF6500Service = async (): Promise<void> => {
+  return invoke('stop_bf6500_service');
 }; 

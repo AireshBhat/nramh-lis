@@ -6,10 +6,14 @@ use crate::app_state::AppState;
 pub async fn setup<R: tauri::Runtime>(app: AppHandle<R>) -> Result<(), String> {
     let meril_store = app
         .store("meril.json")
-        .map_err(|e| format!("Error getting store: {}", e))?;
+        .map_err(|e| format!("Error getting Meril store: {}", e))?;
 
-    // Initialize AppState with AutoQuantMeril service
-    let mut app_state = AppState::<R>::new(app.clone(), meril_store)?;
+    let bf6500_store = app
+        .store("bf6500.json")
+        .map_err(|e| format!("Error getting BF-6500 store: {}", e))?;
+
+    // Initialize AppState with both services
+    let mut app_state = AppState::<R>::new(app.clone(), meril_store, bf6500_store)?;
 
     // Initialize the AppState (handles async operations like auto-starting services)
     app_state.initialize().await?;
@@ -17,14 +21,6 @@ pub async fn setup<R: tauri::Runtime>(app: AppHandle<R>) -> Result<(), String> {
     // Store AppState in AppData for global access
     app.manage(app_state);
 
-    // let _afinion_store = app
-    //     .store("afinion.json")
-    //     .map_err(|e| format!("Error getting store: {}", e))?;
-
-    // let _bf6500_store = app
-    //     .store("bf6500.json")
-    //     .map_err(|e| format!("Error getting store: {}", e))?;
-
-    log::info!("Bootup service initialized with AppState");
+    log::info!("Bootup service initialized with AppState for Meril and BF-6500 services");
     Ok(())
 }

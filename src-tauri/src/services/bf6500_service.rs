@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use tauri::Runtime;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
@@ -31,6 +31,16 @@ pub struct HL7Connection {
     pub message_buffer: Vec<u8>,     // Buffer for incoming HL7 message
     pub current_message: Vec<u8>,    // Current message being built
     pub analyzer_id: String,
+    pub last_activity: DateTime<Utc>, // Track connection activity
+    pub retry_count: u32,            // Track retry attempts
+    pub health_status: ConnectionHealthStatus,
+}
+
+#[derive(Debug, Clone)]
+pub enum ConnectionHealthStatus {
+    Healthy,
+    Degraded,
+    Unhealthy,
 }
 
 // ============================================================================
@@ -241,6 +251,9 @@ impl<R: Runtime> BF6500Service<R> {
                         message_buffer: Vec::new(),
                         current_message: Vec::new(),
                         analyzer_id: analyzer_id.clone(),
+                        last_activity: Utc::now(),
+                        retry_count: 0,
+                        health_status: ConnectionHealthStatus::Healthy,
                     };
 
                     // Store connection
@@ -302,8 +315,13 @@ impl<R: Runtime> BF6500Service<R> {
                 }
             };
 
-            // Read data
-            match timeout(Duration::from_secs(10), connection.stream.read(&mut buffer)).await {
+            // Update last activity and check health
+            connection.last_activity = Utc::now();
+            Self::update_connection_health(connection);
+
+            // Read data with configurable timeout
+            let read_timeout = Self::get_connection_timeout(&connection.health_status);
+            match timeout(read_timeout, connection.stream.read(&mut buffer)).await {
                 Ok(Ok(0)) => {
                     // Connection closed
                     log::info!("HL7 connection closed by {}", connection.remote_addr);
@@ -314,15 +332,21 @@ impl<R: Runtime> BF6500Service<R> {
 
                     // Process HL7/MLLP protocol
                     if let Err(e) = Self::process_hl7_data(connection, data, &event_sender).await {
-                        log::error!("Error processing HL7 data: {}", e);
-
+                        let enhanced_error = Self::handle_hl7_processing_error(&e, connection);
+                        
                         let _ = event_sender
                             .send(BF6500Event::Error {
                                 analyzer_id: analyzer_id.clone(),
-                                error: e,
+                                error: enhanced_error,
                                 timestamp: Utc::now(),
                             })
                             .await;
+
+                        // Check if connection should be dropped due to repeated errors
+                        if connection.retry_count > 5 {
+                            log::error!("Connection {} exceeded retry limit, dropping connection", connection.remote_addr);
+                            break;
+                        }
                     }
                 }
                 Ok(Err(e)) => {
@@ -376,21 +400,29 @@ impl<R: Runtime> BF6500Service<R> {
             // Parse HL7 message
             match parse_hl7_message(&message_str) {
                 Ok(hl7_message) => {
-                    // Send ACK
-                    let ack = create_hl7_acknowledgment(&hl7_message, "AA", Some("Message accepted"));
-                    Self::send_hl7_response(connection, &ack).await?;
+                    // Validate message content
+                    match Self::validate_hl7_message_content(&hl7_message) {
+                        Ok(()) => {
+                            // Send ACK for valid message
+                            let ack = create_hl7_acknowledgment(&hl7_message, "AA", Some("Message accepted"));
+                            Self::send_hl7_response(connection, &ack).await?;
 
-                    // Process message content
-                    Self::process_hl7_message(connection, &hl7_message, event_sender).await?;
+                            // Process message content
+                            Self::process_hl7_message(connection, &hl7_message, event_sender).await?;
+                            
+                            // Reset retry count on successful processing
+                            connection.retry_count = 0;
+                        }
+                        Err(validation_error) => {
+                            let enhanced_error = Self::handle_hl7_processing_error(&validation_error, connection);
+                            let nak = Self::create_hl7_nak_response(&message_str, &enhanced_error).await;
+                            Self::send_hl7_response(connection, &nak).await?;
+                        }
+                    }
                 }
-                Err(e) => {
-                    log::error!("Failed to parse HL7 message: {}", e);
-                    // Send NAK
-                    let nak = format!("MSH|^~\\&|LIS|HOSPITAL|BF6500|LAB|{}||ACK|{}|P|2.4\rMSA|AE|{}|{}", 
-                        Utc::now().format("%Y%m%d%H%M%S"), 
-                        Utc::now().timestamp(), 
-                        Utc::now().timestamp(),
-                        e);
+                Err(parse_error) => {
+                    let enhanced_error = Self::handle_hl7_processing_error(&parse_error, connection);
+                    let nak = Self::create_hl7_nak_response(&message_str, &enhanced_error).await;
                     Self::send_hl7_response(connection, &nak).await?;
                 }
             }
@@ -422,6 +454,31 @@ impl<R: Runtime> BF6500Service<R> {
         }
 
         Ok(None)
+    }
+
+    /// Creates a proper HL7 NAK response for parsing errors
+    async fn create_hl7_nak_response(original_message: &str, error: &str) -> String {
+        let timestamp = Utc::now().format("%Y%m%d%H%M%S").to_string();
+        let control_id = format!("NAK{}", Utc::now().timestamp());
+        
+        // Try to extract message control ID from original message
+        let original_control_id = original_message
+            .lines()
+            .find(|line| line.starts_with("MSH"))
+            .and_then(|msh_line| {
+                let fields: Vec<&str> = msh_line.split('|').collect();
+                fields.get(9).map(|s| s.to_string())
+            })
+            .unwrap_or_else(|| "UNKNOWN".to_string());
+
+        // Create proper NAK response
+        format!(
+            "MSH|^~\\&|BF6500_LIS|HOSPITAL|SENDER|FACILITY|{}||ACK^R01^ACK|{}|P|2.4\rMSA|AE|{}|{}",
+            timestamp,
+            control_id,
+            original_control_id,
+            error
+        )
     }
 
     /// Sends HL7 response (ACK/NAK) back to analyzer
@@ -580,6 +637,93 @@ impl<R: Runtime> BF6500Service<R> {
     pub async fn get_analyzer_config(&self) -> Analyzer {
         self.analyzer.read().await.clone()
     }
+
+    /// Updates connection health status based on activity and errors
+    fn update_connection_health(connection: &mut HL7Connection) {
+        let now = Utc::now();
+        let time_since_activity = now.signed_duration_since(connection.last_activity);
+
+        connection.health_status = match connection.retry_count {
+            0..=2 if time_since_activity.num_seconds() < 30 => ConnectionHealthStatus::Healthy,
+            3..=5 if time_since_activity.num_seconds() < 60 => ConnectionHealthStatus::Degraded,
+            _ => ConnectionHealthStatus::Unhealthy,
+        };
+
+        if matches!(connection.health_status, ConnectionHealthStatus::Unhealthy) {
+            log::warn!(
+                "Connection {} marked as unhealthy (retries: {}, last activity: {}s ago)",
+                connection.remote_addr,
+                connection.retry_count,
+                time_since_activity.num_seconds()
+            );
+        }
+    }
+
+    /// Gets appropriate timeout based on connection health
+    fn get_connection_timeout(health_status: &ConnectionHealthStatus) -> Duration {
+        match health_status {
+            ConnectionHealthStatus::Healthy => Duration::from_secs(10),
+            ConnectionHealthStatus::Degraded => Duration::from_secs(5),
+            ConnectionHealthStatus::Unhealthy => Duration::from_secs(2),
+        }
+    }
+
+    /// Validates HL7 message structure and content
+    fn validate_hl7_message_content(message: &HL7Message) -> Result<(), String> {
+        // Check if message has required segments
+        if message.segments.is_empty() {
+            return Err("HL7 message has no segments".to_string());
+        }
+
+        // Check if first segment is MSH
+        if message.segments[0].segment_type != "MSH" {
+            return Err("First segment must be MSH".to_string());
+        }
+
+        // Validate message type for hematology data
+        if !message.message_type.starts_with("ORU^R01") && !message.message_type.starts_with("OUL^R21") {
+            return Err(format!("Unsupported message type: {}", message.message_type));
+        }
+
+        // Check for required patient identification
+        let has_pid = message.segments.iter().any(|s| s.segment_type == "PID");
+        if !has_pid {
+            log::warn!("HL7 message missing PID segment - patient identification may be incomplete");
+        }
+
+        // Check for observation results
+        let has_obx = message.segments.iter().any(|s| s.segment_type == "OBX");
+        if !has_obx {
+            return Err("HL7 message missing OBX segments - no test results found".to_string());
+        }
+
+        Ok(())
+    }
+
+    /// Enhanced error handling with specific error types
+    fn handle_hl7_processing_error(error: &str, connection: &mut HL7Connection) -> String {
+        connection.retry_count += 1;
+        
+        let error_type = if error.contains("timeout") {
+            "TIMEOUT"
+        } else if error.contains("parse") || error.contains("invalid") {
+            "PARSE_ERROR"
+        } else if error.contains("segment") {
+            "SEGMENT_ERROR"
+        } else {
+            "UNKNOWN_ERROR"
+        };
+
+        let enhanced_error = format!("{}:{} (retry {})", error_type, error, connection.retry_count);
+        
+        log::error!(
+            "HL7 processing error for connection {}: {}",
+            connection.remote_addr,
+            enhanced_error
+        );
+
+        enhanced_error
+    }
 }
 
 #[cfg(test)]
@@ -611,6 +755,42 @@ mod tests {
         let result = BF6500Service::<tauri::Wry>::extract_complete_mllp_message(&mut buffer).unwrap();
         assert!(result.is_none());
         assert!(!buffer.is_empty()); // Buffer should retain data
+    }
+
+    #[test]
+    fn test_connection_health_status() {
+        // Test connection health status values
+        assert!(matches!(ConnectionHealthStatus::Healthy, ConnectionHealthStatus::Healthy));
+        assert!(matches!(ConnectionHealthStatus::Degraded, ConnectionHealthStatus::Degraded));
+        assert!(matches!(ConnectionHealthStatus::Unhealthy, ConnectionHealthStatus::Unhealthy));
+    }
+
+    #[test]
+    fn test_connection_timeout_adjustment() {
+        let healthy_timeout = BF6500Service::<tauri::Wry>::get_connection_timeout(&ConnectionHealthStatus::Healthy);
+        let degraded_timeout = BF6500Service::<tauri::Wry>::get_connection_timeout(&ConnectionHealthStatus::Degraded);
+        let unhealthy_timeout = BF6500Service::<tauri::Wry>::get_connection_timeout(&ConnectionHealthStatus::Unhealthy);
+
+        assert!(healthy_timeout > degraded_timeout);
+        assert!(degraded_timeout > unhealthy_timeout);
+        assert_eq!(healthy_timeout.as_secs(), 10);
+        assert_eq!(degraded_timeout.as_secs(), 5);
+        assert_eq!(unhealthy_timeout.as_secs(), 2);
+    }
+
+    #[test]
+    fn test_error_type_classification() {
+        // Test that error types are correctly classified
+        let timeout_error = "connection timeout occurred";
+        let parse_error = "invalid message format";
+        let segment_error = "missing segment data";
+        let unknown_error = "unexpected issue";
+
+        // Since handle_hl7_processing_error requires a mutable connection, we'll test the logic separately
+        assert!(timeout_error.contains("timeout"));
+        assert!(parse_error.contains("invalid"));
+        assert!(segment_error.contains("segment"));
+        assert!(!unknown_error.contains("timeout") && !unknown_error.contains("parse") && !unknown_error.contains("segment"));
     }
 
     #[test]

@@ -6,12 +6,13 @@ import { Analyzer } from '@/lib/types';
 
 interface AnalyzerCardProps {
   analyzer: Analyzer;
+  localIp: string;
   onStatusChange?: () => void;
   onStart?: () => Promise<void>;
   onStop?: () => Promise<void>;
 }
 
-export function AnalyzerCard({ analyzer, onStatusChange, onStart, onStop }: AnalyzerCardProps) {
+export function AnalyzerCard({ analyzer, localIp, onStatusChange, onStart, onStop }: AnalyzerCardProps) {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'Active':
@@ -102,10 +103,10 @@ export function AnalyzerCard({ analyzer, onStatusChange, onStart, onStop }: Anal
           </div>
         )}
 
-        {analyzer.ipAddress && (
+        {analyzer.port && (
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">IP Address</span>
-            <span className="text-sm font-mono">{analyzer.ipAddress}:{analyzer.port}</span>
+            <span className="text-sm font-mono">{localIp}:{analyzer.port}</span>
           </div>
         )}
 
