@@ -91,7 +91,7 @@ impl HisClient {
         
         log::debug!("Meril test results details: {:?}", test_results);
         
-        let machine_name = self.get_machine_name_for_analyzer(analyzer_id);
+        let machine_name = "Meril-3.6-11052213".to_string();
         let sample_no = patient_id.unwrap_or("UNKNOWN").to_string();
         
         log::debug!("Mapped analyzer '{}' to machine name '{}'", analyzer_id, machine_name);
@@ -139,7 +139,7 @@ impl HisClient {
         
         log::debug!("Hematology test results details: {:?}", test_results);
         
-        let machine_name = self.get_machine_name_for_analyzer(analyzer_id);
+        let machine_name = "Meril CQ 5 Plus".to_string();
         let sample_no = patient_id.unwrap_or("UNKNOWN").to_string();
         
         log::debug!("Mapped analyzer '{}' to machine name '{}'", analyzer_id, machine_name);
@@ -292,7 +292,7 @@ impl HisClient {
         log::debug!("Mapping analyzer ID '{}' to machine name", analyzer_id);
         
         let machine_name = if analyzer_id.contains("bf6900") || analyzer_id.contains("hematology") {
-            "Meril-BF-6900".to_string()
+            "Meril CQ 5 Plus".to_string()
         } else if analyzer_id.contains("autoquant") || analyzer_id.contains("meril") {
             "Meril-3.6-11052213".to_string()
         } else {

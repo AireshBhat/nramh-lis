@@ -89,12 +89,21 @@ impl<R: Runtime> BF6900Service<R> {
         };
         let bind_addr = format!("0.0.0.0:{}", port);
 
-        log::info!("Starting BF-6900 service on {}", bind_addr);
+        log::info!("🚀 STARTING BF-6900 EXTERNAL CONNECTION SERVICE");
+        log::info!("   🌐 Bind Address: {}", bind_addr);
+        log::info!("   🔗 Protocol: HL7 v2.4 with MLLP framing");
 
         // Create TCP listener
         let listener = TcpListener::bind(&bind_addr)
             .await
-            .map_err(|e| format!("Failed to bind to {}: {}", bind_addr, e))?;
+            .map_err(|e| {
+                log::error!("❌ FAILED TO START EXTERNAL CONNECTION SERVICE");
+                log::error!("   🌐 Address: {}", bind_addr);
+                log::error!("   🚨 Error: {}", e);
+                format!("Failed to bind to {}: {}", bind_addr, e)
+            })?;
+
+        log::info!("✅ TCP LISTENER READY FOR EXTERNAL CONNECTIONS");
 
         // Store listener in mutex
         {
@@ -125,10 +134,10 @@ impl<R: Runtime> BF6900Service<R> {
             })
             .await;
 
-        log::info!(
-            "BF-6900 service started successfully on port {}",
-            port
-        );
+        log::info!("🎯 BF-6900 EXTERNAL CONNECTION SERVICE ACTIVE");
+        log::info!("   🌐 Listening on port: {}", port);
+        log::info!("   🔗 Ready for external laboratory system connections");
+        log::info!("   📡 HL7 v2.4 protocol active with MLLP framing");
 
         // Start the connection handler in a separate thread
         let connections = self.connections.clone();
@@ -156,15 +165,21 @@ impl<R: Runtime> BF6900Service<R> {
 
     /// Stops the service
     pub async fn stop(&self) -> Result<(), String> {
-        log::info!("Stopping BF-6900 service");
+        log::info!("🛑 STOPPING BF-6900 EXTERNAL CONNECTION SERVICE");
 
         *self.is_running.write().await = false;
 
         // Close all connections
         let mut connections = self.connections.write().await;
+        let connection_count = connections.len();
+        log::info!("🔌 CLOSING {} ACTIVE EXTERNAL CONNECTIONS", connection_count);
+        
         for (analyzer_id, mut connection) in connections.drain() {
+            log::info!("   🔗 Closing connection: {} ({})", connection.remote_addr, analyzer_id);
             if let Err(e) = connection.stream.shutdown().await {
-                log::warn!("Error shutting down connection for {}: {}", analyzer_id, e);
+                log::warn!("   ⚠️  Error shutting down connection for {}: {}", analyzer_id, e);
+            } else {
+                log::info!("   ✅ Connection closed successfully: {}", connection.remote_addr);
             }
         }
 
@@ -195,7 +210,9 @@ impl<R: Runtime> BF6900Service<R> {
             })
             .await;
 
-        log::info!("BF-6900 service stopped");
+        log::info!("✅ BF-6900 EXTERNAL CONNECTION SERVICE STOPPED");
+        log::info!("   📡 HL7 protocol interface disabled");
+        log::info!("   🔒 No longer accepting external connections");
         Ok(())
     }
 
@@ -244,7 +261,10 @@ impl<R: Runtime> BF6900Service<R> {
             // Accept incoming connections
             match timeout(Duration::from_secs(1), listener_ref.accept()).await {
                 Ok(Ok((stream, addr))) => {
-                    log::info!("New HL7 connection from {}", addr);
+                    log::info!("🔗 EXTERNAL CONNECTION ESTABLISHED");
+                    log::info!("   📡 Remote Address: {}", addr);
+                    log::info!("   🏥 Analyzer ID: {}", analyzer_id);
+                    log::info!("   🔧 Protocol: HL7 v2.4 with MLLP framing");
 
                     let connection = HL7Connection {
                         stream,
@@ -331,6 +351,25 @@ impl<R: Runtime> BF6900Service<R> {
                 }
                 Ok(Ok(n)) => {
                     let data = &buffer[..n];
+                    
+                    // Log all incoming data transmission
+                    log::info!("📥 DATA RECEIVED FROM EXTERNAL SYSTEM");
+                    log::info!("   🔗 Connection: {} -> {}", connection.remote_addr, "LIS_SERVER");
+                    log::info!("   📊 Data Size: {} bytes", n);
+                    log::info!("   📋 Raw Data (hex): {}", data.iter().map(|b| format!("{:02X}", b)).collect::<Vec<_>>().join(" "));
+                    
+                    // Log ASCII representation if printable
+                    let ascii_data = String::from_utf8_lossy(data);
+                    if ascii_data.chars().all(|c| c.is_ascii() && !c.is_control() || c == '\r' || c == '\n') {
+                        log::info!("   📝 Raw Data (ASCII): {:?}", ascii_data);
+                    } else {
+                        log::info!("   📝 Raw Data contains non-printable characters");
+                    }
+                    
+                    // Log connection health status
+                    log::debug!("   💓 Connection Health: {:?}", connection.health_status);
+                    log::debug!("   🔄 Retry Count: {}", connection.retry_count);
+                    log::debug!("   📡 Connection State: {:?}", connection.state);
 
                     // Process HL7/MLLP protocol
                     if let Err(e) = Self::process_hl7_data(connection, data, &event_sender).await {
@@ -362,10 +401,15 @@ impl<R: Runtime> BF6900Service<R> {
             }
         }
 
+        // Log connection termination
+        log::info!("🔌 EXTERNAL CONNECTION TERMINATED");
+        log::info!("   🏥 Analyzer ID: {}", analyzer_id);
+        
         // Remove connection
         connections.write().await.remove(&analyzer_id);
 
         // Send disconnection event
+        log::info!("📡 EMITTING DISCONNECTION EVENT");
         let _ = event_sender
             .send(BF6900Event::AnalyzerDisconnected {
                 analyzer_id,
@@ -387,8 +431,27 @@ impl<R: Runtime> BF6900Service<R> {
         while let Some(message_data) = Self::extract_complete_mllp_message(&mut connection.message_buffer)? {
             // Parse HL7 message
             let message_str = String::from_utf8_lossy(&message_data);
-            log::debug!("Received HL7 message: {}", message_str);
+            
+            // Comprehensive HL7 message logging
+            log::info!("📋 COMPLETE HL7 MESSAGE EXTRACTED");
+            log::info!("   🔗 Source: {}", connection.remote_addr);
+            log::info!("   📏 Message Length: {} bytes", message_data.len());
+            log::info!("   📄 Full HL7 Message:\n{}", message_str);
+            
+            // Log message segments for detailed analysis
+            let segments: Vec<&str> = message_str.split('\r').filter(|s| !s.is_empty()).collect();
+            log::info!("   📊 Segment Count: {}", segments.len());
+            for (i, segment) in segments.iter().enumerate() {
+                let segment_type = segment.split('|').next().unwrap_or("UNKNOWN");
+                log::info!("   📋 Segment {}: {} = {}", i + 1, segment_type, segment);
+            }
 
+            // Log event emission
+            log::info!("📡 EMITTING HL7 MESSAGE EVENT");
+            log::info!("   🎯 Event Type: BF6900Event::HL7MessageReceived");
+            log::info!("   🏥 Analyzer ID: {}", connection.analyzer_id);
+            log::info!("   📄 Message Type: HL7");
+            
             // Emit raw message event
             let _ = event_sender
                 .send(BF6900Event::HL7MessageReceived {
@@ -405,8 +468,15 @@ impl<R: Runtime> BF6900Service<R> {
                     // Validate message content
                     match Self::validate_hl7_message_content(&hl7_message) {
                         Ok(()) => {
+                            log::info!("✅ HL7 MESSAGE VALIDATION SUCCESSFUL");
+                            log::info!("   📋 Message Type: {}", hl7_message.message_type);
+                            log::info!("   📊 Segment Count: {}", hl7_message.segments.len());
+                            
                             // Send ACK for valid message
                             let ack = create_hl7_acknowledgment(&hl7_message, "AA", Some("Message accepted"));
+                            log::info!("📤 SENDING ACKNOWLEDGMENT TO EXTERNAL SYSTEM");
+                            log::info!("   🎯 ACK Type: AA (Application Accept)");
+                            log::info!("   📄 ACK Message: {}", ack);
                             Self::send_hl7_response(connection, &ack).await?;
 
                             // Process message content
@@ -416,15 +486,28 @@ impl<R: Runtime> BF6900Service<R> {
                             connection.retry_count = 0;
                         }
                         Err(validation_error) => {
+                            log::error!("❌ HL7 MESSAGE VALIDATION FAILED");
+                            log::error!("   🚨 Validation Error: {}", validation_error);
+                            log::error!("   🔗 Connection: {}", connection.remote_addr);
                             let enhanced_error = Self::handle_hl7_processing_error(&validation_error, connection);
                             let nak = Self::create_hl7_nak_response(&message_str, &enhanced_error).await;
+                            log::info!("📤 SENDING NAK TO EXTERNAL SYSTEM");
+                            log::info!("   🎯 NAK Type: AE (Application Error)");
+                            log::info!("   📄 NAK Message: {}", nak);
                             Self::send_hl7_response(connection, &nak).await?;
                         }
                     }
                 }
                 Err(parse_error) => {
+                    log::error!("❌ HL7 MESSAGE PARSING FAILED");
+                    log::error!("   🚨 Parse Error: {}", parse_error);
+                    log::error!("   📄 Raw Message: {}", message_str);
+                    log::error!("   🔗 Connection: {}", connection.remote_addr);
                     let enhanced_error = Self::handle_hl7_processing_error(&parse_error, connection);
                     let nak = Self::create_hl7_nak_response(&message_str, &enhanced_error).await;
+                    log::info!("📤 SENDING NAK TO EXTERNAL SYSTEM");
+                    log::info!("   🎯 NAK Type: AE (Application Error)");
+                    log::info!("   📄 NAK Message: {}", nak);
                     Self::send_hl7_response(connection, &nak).await?;
                 }
             }
@@ -492,13 +575,28 @@ impl<R: Runtime> BF6900Service<R> {
         mllp_response.push(0x1C); // FS
         mllp_response.push(0x0D); // CR
 
+        // Log outgoing data transmission
+        log::info!("📤 SENDING DATA TO EXTERNAL SYSTEM");
+        log::info!("   🔗 Connection: {} <- {}", connection.remote_addr, "LIS_SERVER");
+        log::info!("   📊 Response Size: {} bytes", mllp_response.len());
+        log::info!("   📋 MLLP Frame (hex): {}", mllp_response.iter().map(|b| format!("{:02X}", b)).collect::<Vec<_>>().join(" "));
+        log::info!("   📝 HL7 Response: {}", response);
+        log::info!("   🎯 Frame Structure: VT(0x0B) + Message + FS(0x1C) + CR(0x0D)");
+
         connection
             .stream
             .write_all(&mllp_response)
             .await
-            .map_err(|e| format!("Failed to send HL7 response: {}", e))?;
+            .map_err(|e| {
+                log::error!("❌ FAILED TO SEND DATA TO EXTERNAL SYSTEM");
+                log::error!("   🚨 Error: {}", e);
+                log::error!("   🔗 Connection: {}", connection.remote_addr);
+                format!("Failed to send HL7 response: {}", e)
+            })?;
 
-        log::debug!("Sent HL7 response: {}", response);
+        log::info!("✅ DATA SUCCESSFULLY SENT TO EXTERNAL SYSTEM");
+        log::info!("   🔗 Connection: {}", connection.remote_addr);
+        log::info!("   📊 Bytes Transmitted: {}", mllp_response.len());
         Ok(())
     }
 
@@ -545,10 +643,28 @@ impl<R: Runtime> BF6900Service<R> {
                     // Log other segment types for debugging
                     log::debug!("Skipping segment type: {}", segment.segment_type);
                 }
+
             }
+
         }
 
+        // Log processing results
+        log::info!("🧪 HEMATOLOGY RESULTS PROCESSED");
+        log::info!("   🏥 Analyzer ID: {}", connection.analyzer_id);
+        log::info!("   👤 Patient Data: {:?}", patient_data.is_some());
+        if let Some(ref patient) = patient_data {
+            log::info!("   👤 Patient ID: {}", patient.id);
+            log::info!("   👤 Patient Name: {}", patient.name);
+        }
+        log::info!("   🧪 Test Results Count: {}", test_results.len());
+        for (i, result) in test_results.iter().enumerate() {
+            log::info!("   🧪 Result {}: {} = {} {} ({})", 
+                i + 1, result.parameter, result.value, 
+                result.units.as_deref().unwrap_or(""), result.status);
+        }
+        
         // Send the processed data as an event
+        log::info!("📡 EMITTING HEMATOLOGY RESULTS EVENT");
         let _ = event_sender
             .send(BF6900Event::HematologyResultProcessed {
                 analyzer_id: connection.analyzer_id.clone(),
@@ -733,11 +849,22 @@ impl<R: Runtime> BF6900Service<R> {
 
         let enhanced_error = format!("{}:{} (retry {})", error_type, error, connection.retry_count);
         
-        log::error!(
-            "HL7 processing error for connection {}: {}",
-            connection.remote_addr,
-            enhanced_error
-        );
+        // Comprehensive error logging for external system communication
+        log::error!("🚨 EXTERNAL SYSTEM COMMUNICATION ERROR");
+        log::error!("   🔗 Connection: {}", connection.remote_addr);
+        log::error!("   🏥 Analyzer ID: {}", connection.analyzer_id);
+        log::error!("   🔢 Error Type: {}", error_type);
+        log::error!("   📝 Error Details: {}", error);
+        log::error!("   🔄 Retry Count: {}", connection.retry_count);
+        log::error!("   💓 Connection Health: {:?}", connection.health_status);
+        
+        // Log buffer state for debugging
+        log::error!("   📊 Message Buffer Size: {} bytes", connection.message_buffer.len());
+        log::error!("   📊 Current Message Size: {} bytes", connection.current_message.len());
+        
+        if connection.retry_count > 3 {
+            log::error!("   ⚠️  HIGH RETRY COUNT - CONNECTION MAY BE UNSTABLE");
+        }
 
         enhanced_error
     }
