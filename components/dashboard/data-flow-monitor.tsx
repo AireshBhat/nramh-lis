@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,9 @@ import {
   RefreshCw,
   Activity
 } from 'lucide-react';
+import { useTestResults } from '@/hooks/use-test-results';
+import { useBF6900Analyzer } from '@/hooks/use-bf6900-analyzer';
+import { useMerilAnalyzer } from '@/hooks/use-meril-analyzer';
 
 interface FlowStage {
   id: string;
@@ -24,40 +27,90 @@ interface FlowStage {
 }
 
 export function DataFlowMonitor() {
-  const [captureFlow, setCaptureFlow] = useState<FlowStage[]>([
-    { id: 'receive', name: 'Data Reception', status: 'active', count: 3, description: 'Receiving data from analyzers' },
-    { id: 'parse', name: 'Protocol Parsing', status: 'active', count: 2, description: 'ASTM/HL7 message parsing' },
-    { id: 'validate', name: 'Data Validation', status: 'completed', count: 1, description: 'Validating test results' },
-    { id: 'store', name: 'Database Storage', status: 'completed', count: 1, description: 'Storing in local database' }
-  ]);
-
-  const [uploadFlow, setUploadFlow] = useState<FlowStage[]>([
-    { id: 'queue', name: 'Upload Queue', status: 'active', count: 5, description: 'Queued for HIS upload' },
-    { id: 'format', name: 'Data Formatting', status: 'active', count: 2, description: 'Formatting for HIS system' },
-    { id: 'upload', name: 'HIS Upload', status: 'active', count: 1, description: 'Uploading to HIS system' },
-    { id: 'confirm', name: 'Confirmation', status: 'error', count: 1, description: 'Awaiting HIS confirmation' }
-  ]);
-
+  const { statistics: testStats, testResults } = useTestResults({ autoLoad: true });
+  const { serviceStatus: bf6900Status } = useBF6900Analyzer();
+  const { analyzer: merilAnalyzer } = useMerilAnalyzer();
   const [lastUpdate, setLastUpdate] = useState(new Date());
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // Simulate real-time updates
-      setCaptureFlow(prev => prev.map(stage => ({
-        ...stage,
-        count: Math.max(0, stage.count + (Math.random() > 0.5 ? 1 : -1))
-      })));
-      
-      setUploadFlow(prev => prev.map(stage => ({
-        ...stage,
-        count: Math.max(0, stage.count + (Math.random() > 0.5 ? 1 : -1))
-      })));
-      
-      setLastUpdate(new Date());
-    }, 3000);
+  // Calculate flow stages based on real data
+  const captureFlow = useMemo((): FlowStage[] => {
+    const totalResults = testStats.total;
+    const preliminaryResults = testStats.preliminary;
+    const finalResults = testStats.final;
+    const abnormalResults = testStats.abnormal;
 
-    return () => clearInterval(interval);
-  }, []);
+    return [
+      { 
+        id: 'receive', 
+        name: 'Data Reception', 
+        status: bf6900Status?.is_running || merilAnalyzer?.status?.status === 'Active' ? 'active' : 'idle', 
+        count: preliminaryResults, 
+        description: 'Receiving data from analyzers' 
+      },
+      { 
+        id: 'parse', 
+        name: 'Protocol Parsing', 
+        status: preliminaryResults > 0 ? 'active' : 'idle', 
+        count: preliminaryResults, 
+        description: 'ASTM/HL7 message parsing' 
+      },
+      { 
+        id: 'validate', 
+        name: 'Data Validation', 
+        status: finalResults > 0 ? 'completed' : 'idle', 
+        count: finalResults, 
+        description: 'Validating test results' 
+      },
+      { 
+        id: 'store', 
+        name: 'Database Storage', 
+        status: totalResults > 0 ? 'completed' : 'idle', 
+        count: totalResults, 
+        description: 'Storing in local database' 
+      }
+    ];
+  }, [testStats, bf6900Status, merilAnalyzer]);
+
+  const uploadFlow = useMemo((): FlowStage[] => {
+    const finalResults = testStats.final;
+    const correctionResults = testStats.correction;
+    const totalUploads = finalResults + correctionResults;
+
+    return [
+      { 
+        id: 'queue', 
+        name: 'Upload Queue', 
+        status: finalResults > 0 ? 'active' : 'idle', 
+        count: finalResults, 
+        description: 'Queued for HIS upload' 
+      },
+      { 
+        id: 'format', 
+        name: 'Data Formatting', 
+        status: finalResults > 0 ? 'active' : 'idle', 
+        count: finalResults, 
+        description: 'Formatting for HIS system' 
+      },
+      { 
+        id: 'upload', 
+        name: 'HIS Upload', 
+        status: finalResults > 0 ? 'active' : 'idle', 
+        count: finalResults, 
+        description: 'Uploading to HIS system' 
+      },
+      { 
+        id: 'confirm', 
+        name: 'Confirmation', 
+        status: correctionResults > 0 ? 'error' : (finalResults > 0 ? 'completed' : 'idle'), 
+        count: correctionResults, 
+        description: 'Awaiting HIS confirmation' 
+      }
+    ];
+  }, [testStats]);
+
+  const refreshData = () => {
+    setLastUpdate(new Date());
+  };
 
   const getStatusIcon = (status: FlowStage['status']) => {
     switch (status) {
@@ -140,7 +193,7 @@ export function DataFlowMonitor() {
           <span className="text-sm text-muted-foreground">
             Last updated: {lastUpdate.toLocaleTimeString()}
           </span>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={refreshData}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
