@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 // ============================================================================
 // MLLP PROTOCOL CONSTANTS
@@ -35,6 +36,73 @@ pub const HL7_SUBCOMPONENT_SEPARATOR: char = '&';
 
 /// HL7 Segment separator
 pub const HL7_SEGMENT_SEPARATOR: char = '\r';
+
+// ============================================================================
+// CQ 5 PLUS PARAMETER CODES (HL7 v2.3.1)
+// ============================================================================
+
+/// Creates mapping of CQ 5 Plus parameter codes to names
+pub fn get_cq5_parameter_codes() -> HashMap<String, String> {
+    let mut codes = HashMap::new();
+    
+    // Analysis modes and metadata
+    codes.insert("2001".to_string(), "MODE".to_string()); // Analysis mode
+    codes.insert("2002".to_string(), "MODE_EX".to_string()); // Measurement mode
+    codes.insert("2003".to_string(), "Ref".to_string()); // Reference group
+    codes.insert("2004".to_string(), "Note".to_string()); // Remarks
+    codes.insert("2005".to_string(), "Level".to_string()); // QC level
+    
+    // Hematology parameters (CQ 5 Plus mapping)
+    codes.insert("2006".to_string(), "V_WBC".to_string()); // Total white blood cell
+    codes.insert("2007".to_string(), "V_NEU_p".to_string()); // Percentage of neutrophil
+    codes.insert("2008".to_string(), "V_LYM_p".to_string()); // Percentage of lymphocyte
+    codes.insert("2009".to_string(), "V_MON_p".to_string()); // Percentage of monocyte
+    codes.insert("2010".to_string(), "V_EOS_p".to_string()); // Percentage of eosinophil
+    codes.insert("2011".to_string(), "V_BAS_p".to_string()); // Percentage of basophil
+    codes.insert("2012".to_string(), "V_NEU_c".to_string()); // Number of neutrophil
+    codes.insert("2013".to_string(), "V_LYM_c".to_string()); // Number of lymphocyte
+    codes.insert("2014".to_string(), "V_MON_c".to_string()); // Number of monocyte
+    codes.insert("2015".to_string(), "V_EOS_c".to_string()); // Number of eosinophil
+    codes.insert("2016".to_string(), "V_BAS_c".to_string()); // Number of basophil
+    codes.insert("2017".to_string(), "V_RBC".to_string()); // Number of red blood cell
+    codes.insert("2018".to_string(), "V_HGB".to_string()); // Hemoglobin
+    codes.insert("2019".to_string(), "V_MCV".to_string()); // Mean red blood cell volume
+    codes.insert("2020".to_string(), "V_HCT".to_string()); // RBC hematocrit
+    codes.insert("2021".to_string(), "V_MCH".to_string()); // Mean red blood cell hemoglobin content
+    codes.insert("2022".to_string(), "V_MCHC".to_string()); // Mean red blood cell hemoglobin concentration
+    codes.insert("2023".to_string(), "V_RDW_SD".to_string()); // Standard deviation of red blood cell distribution width
+    codes.insert("2024".to_string(), "V_RDW_CV".to_string()); // Red blood cell distribution width variation coefficient
+    codes.insert("2025".to_string(), "V_PLT".to_string()); // Number of platelet
+    codes.insert("2026".to_string(), "V_MPV".to_string()); // Average platelet volume
+    codes.insert("2027".to_string(), "V_PCT".to_string()); // Platelet hematocrit
+    codes.insert("2028".to_string(), "V_PDW".to_string()); // Platelet distribution width
+    codes.insert("2029".to_string(), "V_P_LCR".to_string()); // Platelet - ratio of macrophage
+    codes.insert("2030".to_string(), "V_P_LCC".to_string()); // Platelet ratio (NEW)
+    codes.insert("2031".to_string(), "V_CRP".to_string()); // C reactive protein (NEW)
+    codes.insert("2032".to_string(), "V_HS_CRP".to_string()); // Hypersensitive C-reactive protein (NEW)
+    
+    // Histogram/Scattergram data
+    codes.insert("2101".to_string(), "RBCHistogram.PNG".to_string()); // RBC histogram PNG data
+    codes.insert("2102".to_string(), "PLTHistogram.PNG".to_string()); // PLT histogram PNG data
+    codes.insert("2033".to_string(), "BASOScattergram.PNG".to_string()); // BASO scattergram PNG data
+    codes.insert("2034".to_string(), "DIFFScattergram.PNG".to_string()); // DIFF scattergram PNG data
+    
+    codes
+}
+
+/// Creates mapping of OBR-4 service type codes
+pub fn get_obr4_service_codes() -> HashMap<String, String> {
+    let mut codes = HashMap::new();
+    
+    codes.insert("1001".to_string(), "CountResults".to_string()); // Sample count results
+    codes.insert("1002".to_string(), "LJQC".to_string()); // L-J QC count results
+    codes.insert("1003".to_string(), "XbarQC".to_string()); // Xbar QC count results
+    codes.insert("1004".to_string(), "XBQC".to_string()); // X-B QC count results
+    codes.insert("1005".to_string(), "CRPQC".to_string()); // CRP QC count results
+    codes.insert("1006".to_string(), "XbarRQC".to_string()); // Xbar-R QC count results
+    
+    codes
+}
 
 // ============================================================================
 // HL7 DATA STRUCTURES
@@ -129,6 +197,32 @@ pub struct OBXSegment {
     pub effective_date_of_reference_range: String,
     pub user_defined_access_checks: String,
     pub date_time_of_observation: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MSASegment {
+    pub acknowledgment_code: String,
+    pub message_control_id: String,
+    pub text_message: String,
+    pub expected_sequence_number: String,
+    pub delayed_acknowledgment_type: String,
+    pub error_condition: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ORCSegment {
+    pub order_control: String,
+    pub placer_order_number: String,
+    pub filler_order_number: String,
+    pub placer_group_number: String,
+    pub order_status: String,
+    pub response_flag: String,
+    pub quantity_timing: String,
+    pub parent_order: String,
+    pub date_time_of_transaction: String,
+    pub entered_by: String,
+    pub verified_by: String,
+    pub ordering_provider: String,
 }
 
 // ============================================================================
@@ -382,7 +476,45 @@ pub fn parse_obx_segment(segment: &HL7Segment) -> Result<OBXSegment, String> {
     })
 }
 
-/// Creates HL7 ACK (Acknowledgment) message
+/// Parses MSA (Message Acknowledgment) segment
+pub fn parse_msa_segment(segment: &HL7Segment) -> Result<MSASegment, String> {
+    if segment.segment_type != "MSA" {
+        return Err("Not an MSA segment".to_string());
+    }
+    
+    Ok(MSASegment {
+        acknowledgment_code: segment.fields.get(1).unwrap_or(&String::new()).clone(),
+        message_control_id: segment.fields.get(2).unwrap_or(&String::new()).clone(),
+        text_message: segment.fields.get(3).unwrap_or(&String::new()).clone(),
+        expected_sequence_number: segment.fields.get(4).unwrap_or(&String::new()).clone(),
+        delayed_acknowledgment_type: segment.fields.get(5).unwrap_or(&String::new()).clone(),
+        error_condition: segment.fields.get(6).unwrap_or(&String::new()).clone(),
+    })
+}
+
+/// Parses ORC (Common Order) segment
+pub fn parse_orc_segment(segment: &HL7Segment) -> Result<ORCSegment, String> {
+    if segment.segment_type != "ORC" {
+        return Err("Not an ORC segment".to_string());
+    }
+    
+    Ok(ORCSegment {
+        order_control: segment.fields.get(1).unwrap_or(&String::new()).clone(),
+        placer_order_number: segment.fields.get(2).unwrap_or(&String::new()).clone(),
+        filler_order_number: segment.fields.get(3).unwrap_or(&String::new()).clone(),
+        placer_group_number: segment.fields.get(4).unwrap_or(&String::new()).clone(),
+        order_status: segment.fields.get(5).unwrap_or(&String::new()).clone(),
+        response_flag: segment.fields.get(6).unwrap_or(&String::new()).clone(),
+        quantity_timing: segment.fields.get(7).unwrap_or(&String::new()).clone(),
+        parent_order: segment.fields.get(8).unwrap_or(&String::new()).clone(),
+        date_time_of_transaction: segment.fields.get(9).unwrap_or(&String::new()).clone(),
+        entered_by: segment.fields.get(10).unwrap_or(&String::new()).clone(),
+        verified_by: segment.fields.get(11).unwrap_or(&String::new()).clone(),
+        ordering_provider: segment.fields.get(12).unwrap_or(&String::new()).clone(),
+    })
+}
+
+/// Creates HL7 ACK (Acknowledgment) message for CQ 5 Plus (HL7 v2.3.1)
 pub fn create_hl7_acknowledgment(
     original_message: &HL7Message,
     ack_code: &str,
@@ -391,9 +523,9 @@ pub fn create_hl7_acknowledgment(
     let timestamp = Utc::now().format("%Y%m%d%H%M%S").to_string();
     let control_id = format!("ACK{}", timestamp);
     
-    // MSH segment for ACK
+    // MSH segment for ACK (HL7 v2.3.1)
     let msh = format!(
-        "MSH|^~\\&|LIS|HOSPITAL|{}|{}|{}||ACK^{}^ACK|{}|P|2.4",
+        "MSH|^~\\&|LIS|HOSPITAL|{}|{}|{}||ACK^{}^ACK|{}|P|2.3.1||||||UTF-8",
         original_message.segments.first()
             .and_then(|s| s.fields.get(3))
             .unwrap_or(&"SENDER".to_string()),
@@ -416,11 +548,44 @@ pub fn create_hl7_acknowledgment(
     format!("{}\r{}\r", msh, msa)
 }
 
+/// Determines processing ID based on message type (CQ 5 Plus logic)
+pub fn get_processing_id_for_message_type(message_type: &str, obr_service_code: Option<&str>) -> String {
+    // For QC messages, use "Q"
+    if let Some(service_code) = obr_service_code {
+        if service_code.contains("QC") || service_code.contains("1002") || 
+           service_code.contains("1003") || service_code.contains("1004") || 
+           service_code.contains("1005") || service_code.contains("1006") {
+            return "Q".to_string();
+        }
+    }
+    
+    // For regular samples, use "P"
+    match message_type {
+        t if t.starts_with("ORU") => "P".to_string(),
+        t if t.starts_with("OUL") => "Q".to_string(), // OUL is typically QC
+        t if t.starts_with("ORM") => "P".to_string(), // Worklist request
+        t if t.starts_with("ORR") => "P".to_string(), // Worklist response
+        _ => "P".to_string(), // Default to sample processing
+    }
+}
+
+/// Validates message type support (CQ 5 Plus supported types)
+pub fn is_supported_message_type(message_type: &str) -> bool {
+    match message_type {
+        "ORU^R01" => true,  // Observation result
+        "OUL^R21" => true,  // Unsolicited observation (QC)
+        "ORM^O01" => true,  // Order message (worklist request)
+        "ORR^O02" => true,  // Order response (worklist response)
+        "ACK" => true,      // Acknowledgment
+        _ => false,
+    }
+}
+
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
 
-/// Extracts hematology parameter name from observation identifier
+/// Extracts hematology parameter name from observation identifier (CQ 5 Plus codes)
 pub fn extract_parameter_name(observation_identifier: &str) -> String {
     // Parse observation identifier field (typically contains code^text^coding_system)
     let parts: Vec<&str> = observation_identifier.split(HL7_COMPONENT_SEPARATOR).collect();
@@ -428,10 +593,33 @@ pub fn extract_parameter_name(observation_identifier: &str) -> String {
     if parts.len() >= 2 {
         parts[1].to_string() // Return the text component
     } else if !parts.is_empty() {
-        parts[0].to_string() // Return the code if no text
+        // Try to map code to parameter name using CQ 5 Plus codes
+        let code = parts[0];
+        let parameter_codes = get_cq5_parameter_codes();
+        parameter_codes.get(code).cloned().unwrap_or_else(|| parts[0].to_string())
     } else {
         "Unknown".to_string()
     }
+}
+
+/// Extracts parameter code from observation identifier
+pub fn extract_parameter_code(observation_identifier: &str) -> String {
+    let parts: Vec<&str> = observation_identifier.split(HL7_COMPONENT_SEPARATOR).collect();
+    if !parts.is_empty() {
+        parts[0].to_string()
+    } else {
+        "Unknown".to_string()
+    }
+}
+
+/// Checks if parameter is a CRP-related test (new in CQ 5 Plus)
+pub fn is_crp_parameter(parameter_code: &str) -> bool {
+    matches!(parameter_code, "2031" | "2032")
+}
+
+/// Checks if parameter is histogram/scattergram data
+pub fn is_histogram_parameter(parameter_code: &str) -> bool {
+    matches!(parameter_code, "2101" | "2102" | "2033" | "2034")
 }
 
 /// Extracts flags from abnormal flags field
@@ -457,7 +645,7 @@ mod tests {
 
     #[test]
     fn test_mllp_frame_creation() {
-        let message = "MSH|^~\\&|LAB|HOSPITAL|LIS|RECEIVER|20240101120000||ORU^R01|123456|P|2.4\rPID|1||P123456|||DOE^JOHN||19800101|M\r";
+        let message = "MSH|^~\\&|BF-6900|20180613001|LIS|RECEIVER|20240101120000||ORU^R01|123456|P|2.3.1||||||UTF-8\rPID|1||P123456|||DOE^JOHN||19800101|M\r";
         let frame = create_mllp_frame(message);
         
         assert_eq!(frame[0], MLLP_START_BLOCK);
@@ -483,7 +671,7 @@ mod tests {
 
     #[test]
     fn test_hl7_segment_parsing() {
-        let segment_line = "MSH|^~\\&|LAB|HOSPITAL|LIS|RECEIVER|20240101120000||ORU^R01|123456|P|2.4";
+        let segment_line = "MSH|^~\\&|BF-6900|20180613001|LIS|RECEIVER|20240101120000||ORU^R01|123456|P|2.3.1||||||UTF-8";
         let segment = parse_hl7_segment(segment_line).unwrap();
         
         assert_eq!(segment.segment_type, "MSH");
@@ -493,24 +681,24 @@ mod tests {
 
     #[test]
     fn test_msh_segment_parsing() {
-        let segment_line = "MSH|^~\\&|LAB|HOSPITAL|LIS|RECEIVER|20240101120000||ORU^R01|123456|P|2.4";
+        let segment_line = "MSH|^~\\&|BF-6900|20180613001|LIS|RECEIVER|20240101120000||ORU^R01|123456|P|2.3.1||||||UTF-8";
         let segment = parse_hl7_segment(segment_line).unwrap();
         let msh = parse_msh_segment(&segment).unwrap();
         
-        assert_eq!(msh.sending_application, "LAB");
-        assert_eq!(msh.sending_facility, "HOSPITAL");
+        assert_eq!(msh.sending_application, "BF-6900");
+        assert_eq!(msh.sending_facility, "20180613001");
         assert_eq!(msh.message_type, "ORU^R01");
         assert_eq!(msh.message_control_id, "123456");
-        assert_eq!(msh.version_id, "2.4");
+        assert_eq!(msh.version_id, "2.3.1");
     }
 
     #[test]
     fn test_obx_segment_parsing() {
-        let segment_line = "OBX|1|NM|WBC^White Blood Cells^LOCAL|1|8.5|10^9/L|4.0-10.0|N|||F|||20240101120000";
+        let segment_line = "OBX|1|NM|2006^V_WBC^LOCAL|1|8.5|10^9/L|4.0-10.0|N|||F|||20240101120000";
         let segment = parse_hl7_segment(segment_line).unwrap();
         let obx = parse_obx_segment(&segment).unwrap();
         
-        assert_eq!(obx.observation_identifier, "WBC^White Blood Cells^LOCAL");
+        assert_eq!(obx.observation_identifier, "2006^V_WBC^LOCAL");
         assert_eq!(obx.observation_value, "8.5");
         assert_eq!(obx.units, "10^9/L");
         assert_eq!(obx.references_range, "4.0-10.0");
@@ -518,13 +706,13 @@ mod tests {
 
     #[test]
     fn test_parameter_name_extraction() {
-        let observation_id = "WBC^White Blood Cells^LOCAL";
+        let observation_id = "2006^V_WBC^LOCAL";
         let parameter = extract_parameter_name(observation_id);
-        assert_eq!(parameter, "White Blood Cells");
+        assert_eq!(parameter, "V_WBC");
         
-        let simple_id = "WBC";
+        let simple_id = "2006";
         let simple_parameter = extract_parameter_name(simple_id);
-        assert_eq!(simple_parameter, "WBC");
+        assert_eq!(simple_parameter, "V_WBC");
     }
 
     #[test]
@@ -569,5 +757,80 @@ mod tests {
         let ack = create_hl7_acknowledgment(&message, "AA", Some("Message accepted"));
         assert!(ack.contains("MSH|"));
         assert!(ack.contains("MSA|AA|123456|Message accepted"));
+        assert!(ack.contains("2.3.1")); // Check HL7 version
+        assert!(ack.contains("UTF-8")); // Check character set
+    }
+
+    #[test]
+    fn test_cq5_parameter_codes() {
+        let codes = get_cq5_parameter_codes();
+        
+        // Test some key parameters
+        assert_eq!(codes.get("2006"), Some(&"V_WBC".to_string()));
+        assert_eq!(codes.get("2031"), Some(&"V_CRP".to_string())); // New CRP parameter
+        assert_eq!(codes.get("2032"), Some(&"V_HS_CRP".to_string())); // New HS-CRP parameter
+        assert_eq!(codes.get("2030"), Some(&"V_P_LCC".to_string())); // New platelet parameter
+    }
+
+    #[test]
+    fn test_processing_id_logic() {
+        // Sample messages should use "P"
+        assert_eq!(get_processing_id_for_message_type("ORU^R01", Some("1001^CountResults")), "P");
+        
+        // QC messages should use "Q"
+        assert_eq!(get_processing_id_for_message_type("OUL^R21", Some("1002^LJQC")), "Q");
+        assert_eq!(get_processing_id_for_message_type("ORU^R01", Some("1003^XbarQC")), "Q");
+        
+        // Worklist messages should use "P"
+        assert_eq!(get_processing_id_for_message_type("ORM^O01", None), "P");
+        assert_eq!(get_processing_id_for_message_type("ORR^O02", None), "P");
+    }
+
+    #[test]
+    fn test_supported_message_types() {
+        assert!(is_supported_message_type("ORU^R01"));
+        assert!(is_supported_message_type("OUL^R21"));
+        assert!(is_supported_message_type("ORM^O01")); // Worklist request
+        assert!(is_supported_message_type("ORR^O02")); // Worklist response
+        assert!(is_supported_message_type("ACK"));
+        
+        assert!(!is_supported_message_type("INVALID^TYPE"));
+    }
+
+    #[test]
+    fn test_crp_parameter_detection() {
+        assert!(is_crp_parameter("2031")); // V_CRP
+        assert!(is_crp_parameter("2032")); // V_HS_CRP
+        assert!(!is_crp_parameter("2006")); // V_WBC
+    }
+
+    #[test]
+    fn test_histogram_parameter_detection() {
+        assert!(is_histogram_parameter("2101")); // RBC histogram
+        assert!(is_histogram_parameter("2034")); // DIFF scattergram
+        assert!(!is_histogram_parameter("2006")); // V_WBC
+    }
+
+    #[test]
+    fn test_msa_segment_parsing() {
+        let segment_line = "MSA|AA|123456|Message accepted|||0";
+        let segment = parse_hl7_segment(segment_line).unwrap();
+        let msa = parse_msa_segment(&segment).unwrap();
+        
+        assert_eq!(msa.acknowledgment_code, "AA");
+        assert_eq!(msa.message_control_id, "123456");
+        assert_eq!(msa.text_message, "Message accepted");
+        assert_eq!(msa.error_condition, "0");
+    }
+
+    #[test]
+    fn test_orc_segment_parsing() {
+        let segment_line = "ORC|RF||SampleID||IP";
+        let segment = parse_hl7_segment(segment_line).unwrap();
+        let orc = parse_orc_segment(&segment).unwrap();
+        
+        assert_eq!(orc.order_control, "RF");
+        assert_eq!(orc.filler_order_number, "SampleID");
+        assert_eq!(orc.order_status, "IP");
     }
 }

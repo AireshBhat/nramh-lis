@@ -4,7 +4,7 @@ import { LocalIpBanner } from '@/components/analyzers/local-ip-banner';
 import { AnalyzerCard } from '@/components/analyzers/analyzer-card';
 import { useLocalIp } from '@/hooks/use-local-ip';
 import { useMerilAnalyzer } from '@/hooks/use-meril-analyzer';
-import { useBF6500Analyzer } from '@/hooks/use-bf6500-analyzer';
+import { useBF6900Analyzer } from '@/hooks/use-bf6900-analyzer';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, RefreshCw } from 'lucide-react';
@@ -22,20 +22,20 @@ export default function AnalyzersPage() {
   } = useMerilAnalyzer();
   
   const { 
-    analyzer: bf6500Analyzer, 
-    loading: bf6500Loading, 
-    error: bf6500Error, 
-    refreshAnalyzer: refreshBF6500Analyzer, 
-    startService: startBF6500Service, 
-    stopService: stopBF6500Service 
-  } = useBF6500Analyzer();
+    analyzer: bf6900Analyzer, 
+    loading: bf6900Loading, 
+    error: bf6900Error, 
+    refreshAnalyzer: refreshBF6900Analyzer, 
+    startService: startBF6900Service, 
+    stopService: stopBF6900Service 
+  } = useBF6900Analyzer();
 
   const handleMerilStatusChange = () => {
     refreshMerilAnalyzer();
   };
 
-  const handleBF6500StatusChange = () => {
-    refreshBF6500Analyzer();
+  const handleBF6900StatusChange = () => {
+    refreshBF6900Analyzer();
   };
 
   const handleStartMerilService = async () => {
@@ -54,32 +54,32 @@ export default function AnalyzersPage() {
     }
   };
 
-  const handleStartBF6500Service = async () => {
+  const handleStartBF6900Service = async () => {
     try {
-      await startBF6500Service();
+      await startBF6900Service();
     } catch (error) {
-      console.error('Failed to start BF-6500 service:', error);
+      console.error('Failed to start BF-6900 service:', error);
     }
   };
 
-  const handleStopBF6500Service = async () => {
+  const handleStopBF6900Service = async () => {
     try {
-      await stopBF6500Service();
+      await stopBF6900Service();
     } catch (error) {
-      console.error('Failed to stop BF-6500 service:', error);
+      console.error('Failed to stop BF-6900 service:', error);
     }
   };
 
   const handleRefreshAll = async () => {
     await Promise.all([
       refreshMerilAnalyzer(),
-      refreshBF6500Analyzer()
+      refreshBF6900Analyzer()
     ]);
   };
 
-  const isLoading = merilLoading || bf6500Loading;
-  const hasError = merilError || bf6500Error;
-  const errorMessage = merilError || bf6500Error;
+  const isLoading = merilLoading || bf6900Loading;
+  const hasError = merilError || bf6900Error;
+  const errorMessage = merilError || bf6900Error;
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -141,20 +141,20 @@ export default function AnalyzersPage() {
             />
           )}
 
-          {/* BF-6500 Analyzer */}
-          {bf6500Analyzer && (
+          {/* BF-6900 Analyzer */}
+          {bf6900Analyzer && (
             <AnalyzerCard 
               localIp={localIp}
-              key={`bf6500-${bf6500Analyzer.id}`} 
-              analyzer={bf6500Analyzer}
-              onStatusChange={handleBF6500StatusChange}
-              onStart={handleStartBF6500Service}
-              onStop={handleStopBF6500Service}
+              key={`bf6900-${bf6900Analyzer.id}`} 
+              analyzer={bf6900Analyzer}
+              onStatusChange={handleBF6900StatusChange}
+              onStart={handleStartBF6900Service}
+              onStop={handleStopBF6900Service}
             />
           )}
 
           {/* No Analyzers Found */}
-          {!merilAnalyzer && !bf6500Analyzer && (
+          {!merilAnalyzer && !bf6900Analyzer && (
             <div className="col-span-full text-center py-12">
               <div className="text-muted-foreground">
                 <AlertCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />

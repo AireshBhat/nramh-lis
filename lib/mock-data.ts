@@ -114,6 +114,7 @@ export const mockTestResults: TestResult[] = [
     },
     analyzerId: 'analyzer-001',
     createdAt: new Date('2024-01-15T10:30:00'),
+    patientId: 'PAT-001',
     updatedAt: new Date('2024-01-15T10:30:00')
   },
   {
@@ -136,6 +137,7 @@ export const mockTestResults: TestResult[] = [
       instrument: 'Cobas 8000'
     },
     analyzerId: 'analyzer-001',
+    patientId: 'PAT-002',
     createdAt: new Date('2024-01-15T10:31:00'),
     updatedAt: new Date('2024-01-15T10:31:00')
   }

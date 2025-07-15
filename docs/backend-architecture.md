@@ -126,7 +126,7 @@ pub struct AstmHandler {
 - Handles three-phase communication (Establishment, Transfer, Termination)
 - Manages checksum validation and error correction
 
-##### HL7 Handler (Afinion 2, BF-6500)
+##### HL7 Handler (Afinion 2, BF-6900)
 ```rust
 pub struct Hl7Handler {
     version: Hl7Version,

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -64,7 +65,13 @@ export function Navigation() {
         <div className="flex flex-col flex-grow pt-5 pb-4 overflow-y-auto">
           <div className="flex items-center flex-shrink-0 px-4">
             <div className="flex items-center space-x-2">
-              <TestTube className="h-6 w-6 text-primary" />
+              <Image 
+                src="/icons/app-icon.png" 
+                alt="LIS Dashboard" 
+                width={24} 
+                height={24} 
+                className="h-6 w-6"
+              />
               <span className="text-lg font-bold">LIS Dashboard</span>
             </div>
           </div>
@@ -78,7 +85,13 @@ export function Navigation() {
       <div className="md:hidden">
         <div className="flex items-center justify-between px-4 py-3 bg-card border-b">
           <div className="flex items-center space-x-2">
-            <TestTube className="h-6 w-6 text-primary" />
+            <Image 
+              src="/icons/app-icon.png" 
+              alt="LIS Dashboard" 
+              width={24} 
+              height={24} 
+              className="h-6 w-6"
+            />
             <span className="text-lg font-bold">LIS Dashboard</span>
           </div>
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -91,7 +104,13 @@ export function Navigation() {
               <div className="flex flex-col h-full">
                 <div className="flex items-center flex-shrink-0 px-4 py-5">
                   <div className="flex items-center space-x-2">
-                    <TestTube className="h-6 w-6 text-primary" />
+                    <Image 
+                      src="/icons/app-icon.png" 
+                      alt="LIS Dashboard" 
+                      width={24} 
+                      height={24} 
+                      className="h-6 w-6"
+                    />
                     <span className="text-lg font-bold">LIS Dashboard</span>
                   </div>
                 </div>

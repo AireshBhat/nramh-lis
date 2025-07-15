@@ -11,12 +11,14 @@ use tokio::sync::{mpsc, Mutex, RwLock};
 use tokio::time::timeout;
 
 use crate::models::{Analyzer, AnalyzerStatus};
-use crate::models::hematology::{BF6500Event, HematologyResult, PatientData};
-use crate::api::commands::bf6500_handler::BF6500StoreData;
+use crate::models::hematology::{BF6900Event, HematologyResult, PatientData};
+use crate::api::commands::bf6900_handler::BF6900StoreData;
 use crate::protocol::hl7_parser::{
     HL7ConnectionState, HL7Message, OBXSegment, PIDSegment,
     parse_hl7_message, create_hl7_acknowledgment,
-    extract_parameter_name, extract_abnormal_flags, parse_pid_segment, parse_obx_segment
+    extract_parameter_name, extract_parameter_code, extract_abnormal_flags, 
+    parse_pid_segment, parse_obx_segment, parse_msa_segment, parse_orc_segment,
+    is_supported_message_type
 };
 
 // ============================================================================
@@ -44,10 +46,10 @@ pub enum ConnectionHealthStatus {
 }
 
 // ============================================================================
-// MAIN BF-6500 SERVICE
+// MAIN BF-6900 SERVICE (CQ 5 Plus)
 // ============================================================================
 
-pub struct BF6500Service<R: Runtime> {
+pub struct BF6900Service<R: Runtime> {
     /// Analyzer configuration
     analyzer: Arc<RwLock<Analyzer>>,
     /// TCP listener for incoming connections
@@ -55,18 +57,18 @@ pub struct BF6500Service<R: Runtime> {
     /// Active connections
     connections: Arc<RwLock<HashMap<String, HL7Connection>>>,
     /// Event sender for frontend communication
-    event_sender: mpsc::Sender<BF6500Event>,
+    event_sender: mpsc::Sender<BF6900Event>,
     /// Service status
     is_running: Arc<RwLock<bool>>,
     /// Store for configuration persistence
     store: Arc<tauri_plugin_store::Store<R>>,
 }
 
-impl<R: Runtime> BF6500Service<R> {
-    /// Creates a new BF6500 service
+impl<R: Runtime> BF6900Service<R> {
+    /// Creates a new BF6900 service
     pub fn new(
         analyzer: Analyzer,
-        event_sender: mpsc::Sender<BF6500Event>,
+        event_sender: mpsc::Sender<BF6900Event>,
         store: Arc<tauri_plugin_store::Store<R>>,
     ) -> Self {
         Self {
@@ -87,7 +89,7 @@ impl<R: Runtime> BF6500Service<R> {
         };
         let bind_addr = format!("0.0.0.0:{}", port);
 
-        log::info!("Starting BF-6500 service on {}", bind_addr);
+        log::info!("Starting BF-6900 service on {}", bind_addr);
 
         // Create TCP listener
         let listener = TcpListener::bind(&bind_addr)
@@ -116,7 +118,7 @@ impl<R: Runtime> BF6500Service<R> {
         // Emit status update event
         let _ = self
             .event_sender
-            .send(BF6500Event::AnalyzerStatusUpdated {
+            .send(BF6900Event::AnalyzerStatusUpdated {
                 analyzer_id: analyzer_id.clone(),
                 status: crate::models::AnalyzerStatus::Active,
                 timestamp: chrono::Utc::now(),
@@ -124,7 +126,7 @@ impl<R: Runtime> BF6500Service<R> {
             .await;
 
         log::info!(
-            "BF-6500 service started successfully on port {}",
+            "BF-6900 service started successfully on port {}",
             port
         );
 
@@ -154,7 +156,7 @@ impl<R: Runtime> BF6500Service<R> {
 
     /// Stops the service
     pub async fn stop(&self) -> Result<(), String> {
-        log::info!("Stopping BF-6500 service");
+        log::info!("Stopping BF-6900 service");
 
         *self.is_running.write().await = false;
 
@@ -186,14 +188,14 @@ impl<R: Runtime> BF6500Service<R> {
         // Emit status update event
         let _ = self
             .event_sender
-            .send(BF6500Event::AnalyzerStatusUpdated {
+            .send(BF6900Event::AnalyzerStatusUpdated {
                 analyzer_id: analyzer_id.clone(),
                 status: crate::models::AnalyzerStatus::Inactive,
                 timestamp: chrono::Utc::now(),
             })
             .await;
 
-        log::info!("BF-6500 service stopped");
+        log::info!("BF-6900 service stopped");
         Ok(())
     }
 
@@ -201,7 +203,7 @@ impl<R: Runtime> BF6500Service<R> {
     async fn save_analyzer_to_store(&self) -> Result<(), String> {
         let analyzer = self.analyzer.read().await;
 
-        let store_data = BF6500StoreData {
+        let store_data = BF6900StoreData {
             analyzer: Some(analyzer.clone()),
             hl7_settings: Some(crate::models::hematology::HL7Settings::default()),
         };
@@ -211,7 +213,7 @@ impl<R: Runtime> BF6500Service<R> {
 
         self.store.set("config".to_string(), json_value);
 
-        log::debug!("BF-6500 analyzer configuration saved to store");
+        log::debug!("BF-6900 analyzer configuration saved to store");
         Ok(())
     }
 
@@ -220,7 +222,7 @@ impl<R: Runtime> BF6500Service<R> {
         listener: Arc<Mutex<Option<TcpListener>>>,
         connections: Arc<RwLock<HashMap<String, HL7Connection>>>,
         is_running: Arc<RwLock<bool>>,
-        event_sender: mpsc::Sender<BF6500Event>,
+        event_sender: mpsc::Sender<BF6900Event>,
         analyzer_id: String,
     ) {
         loop {
@@ -264,7 +266,7 @@ impl<R: Runtime> BF6500Service<R> {
 
                     // Send connection event
                     let _ = event_sender
-                        .send(BF6500Event::AnalyzerConnected {
+                        .send(BF6900Event::AnalyzerConnected {
                             analyzer_id: analyzer_id.clone(),
                             remote_addr: addr.to_string(),
                             timestamp: Utc::now(),
@@ -299,7 +301,7 @@ impl<R: Runtime> BF6500Service<R> {
     /// Handles individual HL7 connection
     async fn handle_connection(
         connections: Arc<RwLock<HashMap<String, HL7Connection>>>,
-        event_sender: mpsc::Sender<BF6500Event>,
+        event_sender: mpsc::Sender<BF6900Event>,
         analyzer_id: String,
     ) {
         let mut buffer = [0u8; 1024];
@@ -335,7 +337,7 @@ impl<R: Runtime> BF6500Service<R> {
                         let enhanced_error = Self::handle_hl7_processing_error(&e, connection);
                         
                         let _ = event_sender
-                            .send(BF6500Event::Error {
+                            .send(BF6900Event::Error {
                                 analyzer_id: analyzer_id.clone(),
                                 error: enhanced_error,
                                 timestamp: Utc::now(),
@@ -365,7 +367,7 @@ impl<R: Runtime> BF6500Service<R> {
 
         // Send disconnection event
         let _ = event_sender
-            .send(BF6500Event::AnalyzerDisconnected {
+            .send(BF6900Event::AnalyzerDisconnected {
                 analyzer_id,
                 timestamp: Utc::now(),
             })
@@ -376,7 +378,7 @@ impl<R: Runtime> BF6500Service<R> {
     async fn process_hl7_data(
         connection: &mut HL7Connection,
         data: &[u8],
-        event_sender: &mpsc::Sender<BF6500Event>,
+        event_sender: &mpsc::Sender<BF6900Event>,
     ) -> Result<(), String> {
         // Add incoming data to buffer
         connection.message_buffer.extend_from_slice(data);
@@ -389,7 +391,7 @@ impl<R: Runtime> BF6500Service<R> {
 
             // Emit raw message event
             let _ = event_sender
-                .send(BF6500Event::HL7MessageReceived {
+                .send(BF6900Event::HL7MessageReceived {
                     analyzer_id: connection.analyzer_id.clone(),
                     message_type: "HL7".to_string(),
                     raw_data: message_str.to_string(),
@@ -471,9 +473,9 @@ impl<R: Runtime> BF6500Service<R> {
             })
             .unwrap_or_else(|| "UNKNOWN".to_string());
 
-        // Create proper NAK response
+        // Create proper NAK response (CQ 5 Plus format)
         format!(
-            "MSH|^~\\&|BF6500_LIS|HOSPITAL|SENDER|FACILITY|{}||ACK^R01^ACK|{}|P|2.4\rMSA|AE|{}|{}",
+            "MSH|^~\\&|LIS|HOSPITAL|BF-6900|FACILITY|{}||ACK^R01^ACK|{}|P|2.3.1||||||UTF-8\rMSA|AE|{}|{}",
             timestamp,
             control_id,
             original_control_id,
@@ -504,7 +506,7 @@ impl<R: Runtime> BF6500Service<R> {
     async fn process_hl7_message(
         connection: &HL7Connection,
         hl7_message: &HL7Message,
-        event_sender: &mpsc::Sender<BF6500Event>,
+        event_sender: &mpsc::Sender<BF6900Event>,
     ) -> Result<(), String> {
         log::info!("Processing HL7 message type: {}", hl7_message.message_type);
 
@@ -527,6 +529,18 @@ impl<R: Runtime> BF6500Service<R> {
                         }
                     }
                 }
+                "MSA" => {
+                    if let Ok(msa_segment) = parse_msa_segment(segment) {
+                        log::debug!("Received acknowledgment: code={}, control_id={}", 
+                                   msa_segment.acknowledgment_code, msa_segment.message_control_id);
+                    }
+                }
+                "ORC" => {
+                    if let Ok(orc_segment) = parse_orc_segment(segment) {
+                        log::debug!("Received order control: command={}, order_number={}, status={}", 
+                                   orc_segment.order_control, orc_segment.filler_order_number, orc_segment.order_status);
+                    }
+                }
                 _ => {
                     // Log other segment types for debugging
                     log::debug!("Skipping segment type: {}", segment.segment_type);
@@ -536,7 +550,7 @@ impl<R: Runtime> BF6500Service<R> {
 
         // Send the processed data as an event
         let _ = event_sender
-            .send(BF6500Event::HematologyResultProcessed {
+            .send(BF6900Event::HematologyResultProcessed {
                 analyzer_id: connection.analyzer_id.clone(),
                 patient_id: patient_data.as_ref().map(|p| p.id.clone()),
                 patient_data,
@@ -579,19 +593,20 @@ impl<R: Runtime> BF6500Service<R> {
         }
     }
 
-    /// Converts OBX segment to HematologyResult
+    /// Converts OBX segment to HematologyResult (CQ 5 Plus parameter codes)
     fn convert_obx_to_hematology_result(
         obx: &OBXSegment,
         analyzer_id: &str,
     ) -> Result<HematologyResult, String> {
         let parameter_name = extract_parameter_name(&obx.observation_identifier);
+        let parameter_code = extract_parameter_code(&obx.observation_identifier);
         let flags = extract_abnormal_flags(&obx.abnormal_flags);
         let now = Utc::now();
 
         Ok(HematologyResult {
             id: format!("hematology_{}", now.timestamp()),
-            parameter: parameter_name.clone(),
-            parameter_code: parameter_name,
+            parameter: parameter_name,
+            parameter_code,
             value: obx.observation_value.clone(),
             units: if !obx.units.is_empty() {
                 Some(obx.units.clone())
@@ -680,8 +695,8 @@ impl<R: Runtime> BF6500Service<R> {
             return Err("First segment must be MSH".to_string());
         }
 
-        // Validate message type for hematology data
-        if !message.message_type.starts_with("ORU^R01") && !message.message_type.starts_with("OUL^R21") {
+        // Validate message type using CQ 5 Plus supported types
+        if !is_supported_message_type(&message.message_type) {
             return Err(format!("Unsupported message type: {}", message.message_type));
         }
 
@@ -691,9 +706,11 @@ impl<R: Runtime> BF6500Service<R> {
             log::warn!("HL7 message missing PID segment - patient identification may be incomplete");
         }
 
-        // Check for observation results
+        // Check for observation results (not required for worklist messages)
         let has_obx = message.segments.iter().any(|s| s.segment_type == "OBX");
-        if !has_obx {
+        let is_worklist = message.message_type.starts_with("ORM") || message.message_type.starts_with("ORR");
+        
+        if !has_obx && !is_worklist {
             return Err("HL7 message missing OBX segments - no test results found".to_string());
         }
 
@@ -729,30 +746,28 @@ impl<R: Runtime> BF6500Service<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::hematology::HL7Settings;
-    use crate::models::{ConnectionType, Protocol};
 
     #[test]
     fn test_mllp_message_extraction() {
         let mut buffer = vec![0x0B]; // VT
-        buffer.extend_from_slice(b"MSH|^~\\&|BF6500|LAB|LIS|HOSPITAL||");
+        buffer.extend_from_slice(b"MSH|^~\\&|BF6900|LAB|LIS|HOSPITAL||");
         buffer.push(0x1C); // FS
         buffer.push(0x0D); // CR
 
-        let result = BF6500Service::<tauri::Wry>::extract_complete_mllp_message(&mut buffer).unwrap();
+        let result = BF6900Service::<tauri::Wry>::extract_complete_mllp_message(&mut buffer).unwrap();
         assert!(result.is_some());
         let message = result.unwrap();
-        assert_eq!(String::from_utf8_lossy(&message), "MSH|^~\\&|BF6500|LAB|LIS|HOSPITAL||");
+        assert_eq!(String::from_utf8_lossy(&message), "MSH|^~\\&|BF6900|LAB|LIS|HOSPITAL||");
         assert!(buffer.is_empty());
     }
 
     #[test]
     fn test_incomplete_mllp_message() {
         let mut buffer = vec![0x0B]; // VT
-        buffer.extend_from_slice(b"MSH|^~\\&|BF6500|LAB|LIS|HOSPITAL||");
+        buffer.extend_from_slice(b"MSH|^~\\&|BF6900|LAB|LIS|HOSPITAL||");
         // No end sequence
 
-        let result = BF6500Service::<tauri::Wry>::extract_complete_mllp_message(&mut buffer).unwrap();
+        let result = BF6900Service::<tauri::Wry>::extract_complete_mllp_message(&mut buffer).unwrap();
         assert!(result.is_none());
         assert!(!buffer.is_empty()); // Buffer should retain data
     }
@@ -767,9 +782,9 @@ mod tests {
 
     #[test]
     fn test_connection_timeout_adjustment() {
-        let healthy_timeout = BF6500Service::<tauri::Wry>::get_connection_timeout(&ConnectionHealthStatus::Healthy);
-        let degraded_timeout = BF6500Service::<tauri::Wry>::get_connection_timeout(&ConnectionHealthStatus::Degraded);
-        let unhealthy_timeout = BF6500Service::<tauri::Wry>::get_connection_timeout(&ConnectionHealthStatus::Unhealthy);
+        let healthy_timeout = BF6900Service::<tauri::Wry>::get_connection_timeout(&ConnectionHealthStatus::Healthy);
+        let degraded_timeout = BF6900Service::<tauri::Wry>::get_connection_timeout(&ConnectionHealthStatus::Degraded);
+        let unhealthy_timeout = BF6900Service::<tauri::Wry>::get_connection_timeout(&ConnectionHealthStatus::Unhealthy);
 
         assert!(healthy_timeout > degraded_timeout);
         assert!(degraded_timeout > unhealthy_timeout);
@@ -813,10 +828,64 @@ mod tests {
             primary_language: "".to_string(),
         };
 
-        let patient_data = BF6500Service::<tauri::Wry>::convert_pid_to_patient_data(&pid);
+        let patient_data = BF6900Service::<tauri::Wry>::convert_pid_to_patient_data(&pid);
         assert_eq!(patient_data.id, "P123456");
         assert_eq!(patient_data.name, "DOE^JOHN^MIDDLE");
         assert_eq!(patient_data.sex, Some("M".to_string()));
         assert_eq!(patient_data.birth_date, Some("19800101".to_string()));
+    }
+
+    #[test]
+    fn test_obx_to_hematology_result_cq5_plus() {
+        let obx = OBXSegment {
+            set_id: "1".to_string(),
+            value_type: "NM".to_string(),
+            observation_identifier: "2006^V_WBC^LOCAL".to_string(), // CQ 5 Plus WBC code
+            observation_sub_id: "".to_string(),
+            observation_value: "6.8".to_string(),
+            units: "10^9/L".to_string(),
+            references_range: "4-10".to_string(),
+            abnormal_flags: "".to_string(),
+            probability: "".to_string(),
+            nature_of_abnormal_test: "".to_string(),
+            observation_result_status: "F".to_string(),
+            effective_date_of_reference_range: "".to_string(),
+            user_defined_access_checks: "".to_string(),
+            date_time_of_observation: "".to_string(),
+        };
+
+        let result = BF6900Service::<tauri::Wry>::convert_obx_to_hematology_result(&obx, "ANALYZER001").unwrap();
+        assert_eq!(result.parameter, "V_WBC");
+        assert_eq!(result.parameter_code, "2006"); // CQ 5 Plus parameter code
+        assert_eq!(result.value, "6.8");
+        assert_eq!(result.units, Some("10^9/L".to_string()));
+        assert_eq!(result.reference_range, Some("4-10".to_string()));
+        assert_eq!(result.status, "F");
+    }
+
+    #[test]
+    fn test_crp_parameter_conversion() {
+        let obx_crp = OBXSegment {
+            set_id: "1".to_string(),
+            value_type: "NM".to_string(),
+            observation_identifier: "2031^V_CRP^LOCAL".to_string(), // New CRP parameter
+            observation_sub_id: "".to_string(),
+            observation_value: "3.2".to_string(),
+            units: "mg/L".to_string(),
+            references_range: "0-6".to_string(),
+            abnormal_flags: "".to_string(),
+            probability: "".to_string(),
+            nature_of_abnormal_test: "".to_string(),
+            observation_result_status: "F".to_string(),
+            effective_date_of_reference_range: "".to_string(),
+            user_defined_access_checks: "".to_string(),
+            date_time_of_observation: "".to_string(),
+        };
+
+        let result = BF6900Service::<tauri::Wry>::convert_obx_to_hematology_result(&obx_crp, "ANALYZER001").unwrap();
+        assert_eq!(result.parameter, "V_CRP");
+        assert_eq!(result.parameter_code, "2031");
+        assert_eq!(result.value, "3.2");
+        assert_eq!(result.units, Some("mg/L".to_string()));
     }
 }

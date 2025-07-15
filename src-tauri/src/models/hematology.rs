@@ -21,11 +21,11 @@ pub struct PatientData {
 }
 
 // ============================================================================
-// BF-6500 EVENT TYPES
+// BF-6900 EVENT TYPES (CQ 5 Plus)
 // ============================================================================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum BF6500Event {
+pub enum BF6900Event {
     /// Analyzer connected
     AnalyzerConnected {
         analyzer_id: String,
@@ -175,7 +175,7 @@ impl Default for HL7Settings {
                 "ORU^R01".to_string(), // Observation Result Unsolicited
                 "OUL^R21".to_string(), // Unsolicited Laboratory Observation
             ],
-            application_name: "BF6500_LIS".to_string(),
+            application_name: "BF6900_LIS".to_string(),
             facility_name: "HOSPITAL".to_string(),
             auto_acknowledge: true,
         }
@@ -199,7 +199,7 @@ pub struct HematologyParameter {
     pub critical_high: Option<f64>,
 }
 
-/// Standard hematology parameters for BF-6500
+/// Standard hematology parameters for BF-6900
 pub fn get_standard_hematology_parameters() -> Vec<HematologyParameter> {
     vec![
         HematologyParameter {
@@ -294,17 +294,17 @@ pub fn get_standard_hematology_parameters() -> Vec<HematologyParameter> {
 }
 
 // ============================================================================
-// BF-6500 CONFIGURATION
+// BF-6900 CONFIGURATION
 // ============================================================================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BF6500Config {
+pub struct BF6900Config {
     pub analyzer: crate::models::Analyzer,
     pub hl7_settings: HL7Settings,
     pub hematology_parameters: Vec<HematologyParameter>,
 }
 
-impl BF6500Config {
+impl BF6900Config {
     pub fn new(analyzer: crate::models::Analyzer) -> Self {
         Self {
             analyzer,
@@ -429,7 +429,7 @@ mod tests {
             flags: vec!["N".to_string()],
             status: "F".to_string(),
             completed_date_time: Some(Utc::now()),
-            analyzer_id: Some("bf6500-001".to_string()),
+            analyzer_id: Some("bf6900-001".to_string()),
             sample_id: "S123".to_string(),
             test_id: "T123".to_string(),
             created_at: Utc::now(),

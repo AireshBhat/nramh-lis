@@ -7,7 +7,7 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_store::StoreExt;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct BF6500ConfigResponse {
+pub struct BF6900ConfigResponse {
     pub success: bool,
     pub analyzer: Option<Analyzer>,
     pub hl7_settings: Option<HL7Settings>,
@@ -15,13 +15,13 @@ pub struct BF6500ConfigResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct BF6500StoreData {
+pub struct BF6900StoreData {
     pub analyzer: Option<Analyzer>,
     pub hl7_settings: Option<HL7Settings>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct BF6500ServiceStatus {
+pub struct BF6900ServiceStatus {
     pub is_running: bool,
     pub connections_count: usize,
     pub analyzer_status: AnalyzerStatus,
@@ -37,11 +37,11 @@ fn validate_port(port: u16) -> bool {
     port > 0
 }
 
-/// Validates BF-6500 analyzer configuration
-fn validate_bf6500_config(analyzer: &Analyzer) -> Result<(), String> {
+/// Validates BF-6900 analyzer configuration
+fn validate_bf6900_config(analyzer: &Analyzer) -> Result<(), String> {
     // Ensure it's TCP/IP connection
     if analyzer.connection_type != ConnectionType::TcpIp {
-        return Err("BF-6500 only supports TCP/IP connections".to_string());
+        return Err("BF-6900 only supports TCP/IP connections".to_string());
     }
 
     // Validate IP address if provided
@@ -60,7 +60,7 @@ fn validate_bf6500_config(analyzer: &Analyzer) -> Result<(), String> {
 
     // Ensure protocol is HL7 v2.4
     if analyzer.protocol != Protocol::Hl7V24 {
-        return Err("BF-6500 only supports HL7 v2.4 protocol".to_string());
+        return Err("BF-6900 only supports HL7 v2.4 protocol".to_string());
     }
 
     Ok(())
@@ -97,30 +97,30 @@ fn validate_hl7_settings(settings: &HL7Settings) -> Result<(), String> {
     Ok(())
 }
 
-/// Fetches BF-6500 configuration from the service
-/// Returns the current analyzer configuration managed by the BF6500 service
+/// Fetches BF-6900 configuration from the service
+/// Returns the current analyzer configuration managed by the BF6900 service
 #[tauri::command]
-pub async fn fetch_bf6500_config<R: tauri::Runtime>(
+pub async fn fetch_bf6900_config<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
-) -> BF6500ConfigResponse {
+) -> BF6900ConfigResponse {
     // Get the AppState from AppData
     let app_state = app.state::<crate::app_state::AppState<R>>();
 
     // Get analyzer config from service
     let analyzer = app_state
-        .get_bf6500_service()
+        .get_bf6900_service()
         .get_analyzer_config()
         .await;
 
     log::info!(
-        "Successfully fetched BF-6500 configuration from service for analyzer: {}",
+        "Successfully fetched BF-6900 configuration from service for analyzer: {}",
         analyzer.id
     );
 
     // For now, return default HL7 settings since they're not stored in the analyzer model
     let default_hl7_settings = HL7Settings::default();
 
-    BF6500ConfigResponse {
+    BF6900ConfigResponse {
         success: true,
         analyzer: Some(analyzer),
         hl7_settings: Some(default_hl7_settings),
@@ -128,13 +128,13 @@ pub async fn fetch_bf6500_config<R: tauri::Runtime>(
     }
 }
 
-/// Saves BF-6500 configuration to store
-async fn save_bf6500_config_to_store<R: tauri::Runtime>(
+/// Saves BF-6900 configuration to store
+async fn save_bf6900_config_to_store<R: tauri::Runtime>(
     store: &tauri_plugin_store::Store<R>,
     analyzer: &Analyzer,
     hl7_settings: &HL7Settings,
 ) -> Result<(), String> {
-    let store_data = BF6500StoreData {
+    let store_data = BF6900StoreData {
         analyzer: Some(analyzer.clone()),
         hl7_settings: Some(hl7_settings.clone()),
     };
@@ -145,22 +145,22 @@ async fn save_bf6500_config_to_store<R: tauri::Runtime>(
     store.set("config".to_string(), json_value);
 
     log::info!(
-        "BF-6500 configuration saved successfully for analyzer: {}",
+        "BF-6900 configuration saved successfully for analyzer: {}",
         analyzer.id
     );
     Ok(())
 }
 
-/// Updates BF-6500 configuration
+/// Updates BF-6900 configuration
 #[tauri::command]
-pub async fn update_bf6500_config<R: tauri::Runtime>(
+pub async fn update_bf6900_config<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     analyzer: Analyzer,
     hl7_settings: HL7Settings,
-) -> BF6500ConfigResponse {
+) -> BF6900ConfigResponse {
     // Validate the analyzer configuration first
-    if let Err(validation_error) = validate_bf6500_config(&analyzer) {
-        return BF6500ConfigResponse {
+    if let Err(validation_error) = validate_bf6900_config(&analyzer) {
+        return BF6900ConfigResponse {
             success: false,
             analyzer: None,
             hl7_settings: None,
@@ -170,7 +170,7 @@ pub async fn update_bf6500_config<R: tauri::Runtime>(
 
     // Validate HL7 settings
     if let Err(validation_error) = validate_hl7_settings(&hl7_settings) {
-        return BF6500ConfigResponse {
+        return BF6900ConfigResponse {
             success: false,
             analyzer: None,
             hl7_settings: None,
@@ -182,16 +182,16 @@ pub async fn update_bf6500_config<R: tauri::Runtime>(
     let mut updated_analyzer = analyzer;
     updated_analyzer.updated_at = Utc::now();
 
-    // TODO: Add update_analyzer_config method to BF6500 service
+    // TODO: Add update_analyzer_config method to BF6900 service
     // For now, we'll save to store and log that service update is not yet implemented
-    log::warn!("update_bf6500_config: Service update not yet implemented, saving to store directly");
+    log::warn!("update_bf6900_config: Service update not yet implemented, saving to store directly");
 
     // Save to store
-    let store = match app.store("bf6500.json") {
+    let store = match app.store("bf6900.json") {
         Ok(store) => store,
         Err(e) => {
-            log::error!("Failed to get bf6500 store: {}", e);
-            return BF6500ConfigResponse {
+            log::error!("Failed to get bf6900 store: {}", e);
+            return BF6900ConfigResponse {
                 success: false,
                 analyzer: None,
                 hl7_settings: None,
@@ -200,13 +200,13 @@ pub async fn update_bf6500_config<R: tauri::Runtime>(
         }
     };
 
-    match save_bf6500_config_to_store(&store, &updated_analyzer, &hl7_settings).await {
+    match save_bf6900_config_to_store(&store, &updated_analyzer, &hl7_settings).await {
         Ok(_) => {
             log::info!(
-                "BF-6500 configuration updated successfully for analyzer: {}",
+                "BF-6900 configuration updated successfully for analyzer: {}",
                 updated_analyzer.id
             );
-            BF6500ConfigResponse {
+            BF6900ConfigResponse {
                 success: true,
                 analyzer: Some(updated_analyzer),
                 hl7_settings: Some(hl7_settings),
@@ -215,7 +215,7 @@ pub async fn update_bf6500_config<R: tauri::Runtime>(
                 ),
             }
         }
-        Err(save_error) => BF6500ConfigResponse {
+        Err(save_error) => BF6900ConfigResponse {
             success: false,
             analyzer: None,
             hl7_settings: None,
@@ -224,28 +224,28 @@ pub async fn update_bf6500_config<R: tauri::Runtime>(
     }
 }
 
-/// Gets the status of the BF6500 service
+/// Gets the status of the BF6900 service
 #[tauri::command]
-pub async fn get_bf6500_service_status<R: tauri::Runtime>(
+pub async fn get_bf6900_service_status<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
-) -> Result<BF6500ServiceStatus, String> {
+) -> Result<BF6900ServiceStatus, String> {
     // Get the AppState from AppData
     let app_state = app.state::<crate::app_state::AppState<R>>();
-    let service = app_state.get_bf6500_service();
+    let service = app_state.get_bf6900_service();
     let status = service.get_status().await;
     let connections_count = service.get_connections_count().await;
     let is_running = status == AnalyzerStatus::Active;
     
-    Ok(BF6500ServiceStatus {
+    Ok(BF6900ServiceStatus {
         is_running,
         connections_count,
         analyzer_status: status,
     })
 }
 
-/// Starts the BF6500 service
+/// Starts the BF6900 service
 #[tauri::command]
-pub async fn start_bf6500_service<R: tauri::Runtime>(
+pub async fn start_bf6900_service<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
 ) -> Result<(), String> {
     // Get the AppState from AppData
@@ -253,18 +253,18 @@ pub async fn start_bf6500_service<R: tauri::Runtime>(
 
     // Note: We need mutable access to start the service
     // For now, we'll use a workaround by cloning the service and starting it
-    let service = app_state.get_bf6500_service().clone();
+    let service = app_state.get_bf6900_service().clone();
 
-    log::info!("Starting BF-6500 service...");
+    log::info!("Starting BF-6900 service...");
 
     // Start the service
     match service.start().await {
         Ok(()) => {
-            log::info!("BF-6500 service started successfully");
+            log::info!("BF-6900 service started successfully");
 
             // Emit event to frontend
             let _ = app.emit(
-                "bf6500:service-started",
+                "bf6900:service-started",
                 serde_json::json!({
                     "timestamp": chrono::Utc::now()
                 }),
@@ -273,11 +273,11 @@ pub async fn start_bf6500_service<R: tauri::Runtime>(
             Ok(())
         }
         Err(e) => {
-            log::error!("Failed to start BF-6500 service: {}", e);
+            log::error!("Failed to start BF-6900 service: {}", e);
 
             // Emit error event to frontend
             let _ = app.emit(
-                "bf6500:service-error",
+                "bf6900:service-error",
                 serde_json::json!({
                     "error": e.clone(),
                     "timestamp": chrono::Utc::now()
@@ -289,9 +289,9 @@ pub async fn start_bf6500_service<R: tauri::Runtime>(
     }
 }
 
-/// Stops the BF6500 service
+/// Stops the BF6900 service
 #[tauri::command]
-pub async fn stop_bf6500_service<R: tauri::Runtime>(
+pub async fn stop_bf6900_service<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
 ) -> Result<(), String> {
     // Get the AppState from AppData
@@ -299,18 +299,18 @@ pub async fn stop_bf6500_service<R: tauri::Runtime>(
 
     // Note: We need mutable access to stop the service
     // For now, we'll use a workaround by cloning the service and stopping it
-    let service = app_state.get_bf6500_service().clone();
+    let service = app_state.get_bf6900_service().clone();
 
-    log::info!("Stopping BF-6500 service...");
+    log::info!("Stopping BF-6900 service...");
 
     // Stop the service
     match service.stop().await {
         Ok(()) => {
-            log::info!("BF-6500 service stopped successfully");
+            log::info!("BF-6900 service stopped successfully");
 
             // Emit event to frontend
             let _ = app.emit(
-                "bf6500:service-stopped",
+                "bf6900:service-stopped",
                 serde_json::json!({
                     "timestamp": chrono::Utc::now()
                 }),
@@ -319,11 +319,11 @@ pub async fn stop_bf6500_service<R: tauri::Runtime>(
             Ok(())
         }
         Err(e) => {
-            log::error!("Failed to stop BF-6500 service: {}", e);
+            log::error!("Failed to stop BF-6900 service: {}", e);
 
             // Emit error event to frontend
             let _ = app.emit(
-                "bf6500:service-error",
+                "bf6900:service-error",
                 serde_json::json!({
                     "error": e.clone(),
                     "timestamp": chrono::Utc::now()
@@ -335,14 +335,14 @@ pub async fn stop_bf6500_service<R: tauri::Runtime>(
     }
 }
 
-/// Creates a default BF-6500 analyzer configuration
-fn create_default_bf6500_analyzer() -> Analyzer {
+/// Creates a default BF-6900 analyzer configuration
+fn create_default_bf6900_analyzer() -> Analyzer {
     use uuid::Uuid;
 
     Analyzer {
         id: Uuid::new_v4().to_string(),
-        name: "BF-6500 Hematology Analyzer".to_string(),
-        model: "BF-6500".to_string(),
+        name: "BF-6900 Hematology Analyzer".to_string(),
+        model: "BF-6900".to_string(),
         serial_number: None,
         manufacturer: Some("Mindray".to_string()),
         connection_type: ConnectionType::TcpIp,
@@ -379,21 +379,21 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_bf6500_config() {
-        let valid_analyzer = create_default_bf6500_analyzer();
-        assert!(validate_bf6500_config(&valid_analyzer).is_ok());
+    fn test_validate_bf6900_config() {
+        let valid_analyzer = create_default_bf6900_analyzer();
+        assert!(validate_bf6900_config(&valid_analyzer).is_ok());
 
         let invalid_analyzer = Analyzer {
             connection_type: ConnectionType::Serial,
             ..valid_analyzer.clone()
         };
-        assert!(validate_bf6500_config(&invalid_analyzer).is_err());
+        assert!(validate_bf6900_config(&invalid_analyzer).is_err());
 
         let invalid_protocol = Analyzer {
             protocol: Protocol::Astm,
             ..valid_analyzer.clone()
         };
-        assert!(validate_bf6500_config(&invalid_protocol).is_err());
+        assert!(validate_bf6900_config(&invalid_protocol).is_err());
     }
 
     #[test]
@@ -427,10 +427,10 @@ mod tests {
     }
 
     #[test]
-    fn test_create_default_bf6500_analyzer() {
-        let analyzer = create_default_bf6500_analyzer();
-        assert_eq!(analyzer.name, "BF-6500 Hematology Analyzer");
-        assert_eq!(analyzer.model, "BF-6500");
+    fn test_create_default_bf6900_analyzer() {
+        let analyzer = create_default_bf6900_analyzer();
+        assert_eq!(analyzer.name, "BF-6900 Hematology Analyzer");
+        assert_eq!(analyzer.model, "BF-6900");
         assert_eq!(analyzer.manufacturer, Some("Mindray".to_string()));
         assert_eq!(analyzer.connection_type, ConnectionType::TcpIp);
         assert_eq!(analyzer.protocol, Protocol::Hl7V24);

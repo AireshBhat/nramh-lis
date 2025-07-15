@@ -38,6 +38,7 @@ export function DatabaseExample() {
 
   // Example patient data
   const examplePatient: CreatePatientDTO = {
+    id: '1',
     name: {
       firstName: 'John',
       lastName: 'Doe',

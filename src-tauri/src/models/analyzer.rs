@@ -56,7 +56,8 @@ impl From<&str> for AnalyzerStatus {
 pub enum Protocol {
     Astm,
     Hl7,
-    Hl7V24, // HL7 version 2.4 for BF-6500 Hematology analyzer
+    Hl7V24, // HL7 version 2.4 for BF-6900 Hematology analyzer
+    Hl7V231, // HL7 version 2.3.1 for BF-6900 Hematology analyzer (CQ 5 Plus)
 }
 
 impl ToString for Protocol {
@@ -65,6 +66,7 @@ impl ToString for Protocol {
             Protocol::Astm => "ASTM".to_string(),
             Protocol::Hl7 => "HL7".to_string(),
             Protocol::Hl7V24 => "HL7_V24".to_string(),
+            Protocol::Hl7V231 => "HL7_V231".to_string(),
         }
     }
 }
@@ -74,6 +76,7 @@ impl From<&str> for Protocol {
         match s.to_uppercase().as_str() {
             "HL7" => Protocol::Hl7,
             "HL7_V24" => Protocol::Hl7V24,
+            "HL7_V231" => Protocol::Hl7V231,
             _ => Protocol::Astm,
         }
     }

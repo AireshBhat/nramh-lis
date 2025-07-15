@@ -1,7 +1,7 @@
-# BF-6500 Hematology Analyzer Implementation Status
+# BF-6900 Hematology Analyzer Implementation Status
 
 ## Project Overview
-Implementation of a BF-6500 Hematology analyzer interface using HL7 protocol, following the existing Meril AutoQuant ASTM implementation pattern.
+Implementation of a BF-6900 Hematology analyzer interface using HL7 protocol, following the existing Meril AutoQuant ASTM implementation pattern.
 
 ## Current Status: Planning Complete ✅
 **Last Updated:** 2025-07-14
@@ -27,9 +27,9 @@ Implementation of a BF-6500 Hematology analyzer interface using HL7 protocol, fo
 - `src-tauri/src/protocol/mod.rs` ✅
 - `src-tauri/src/protocol/hl7_parser.rs` ✅
 
-#### Task 1.2: Define BF-6500 Data Models ✅
+#### Task 1.2: Define BF-6900 Data Models ✅
 - [x] **Subtask 1.2.1:** Extend `Protocol` enum in `models/analyzer.rs` to include HL7
-- [x] **Subtask 1.2.2:** Create `BF6500Event` enum similar to `MerilEvent`
+- [x] **Subtask 1.2.2:** Create `BF6900Event` enum similar to `MerilEvent`
 - [x] **Subtask 1.2.3:** Define `HematologyResult` struct for test results
 - [x] **Subtask 1.2.4:** Create `HL7Settings` configuration struct
 - [x] **Subtask 1.2.5:** Add hematology-specific data models
@@ -45,8 +45,8 @@ Implementation of a BF-6500 Hematology analyzer interface using HL7 protocol, fo
 **Status:** Complete  
 **Estimated Duration:** 3-4 days
 
-#### Task 2.1: Create BF-6500 Service ✅
-- [x] **Subtask 2.1.1:** Create `bf6500_service.rs` following `autoquant_meril.rs` pattern
+#### Task 2.1: Create BF-6900 Service ✅
+- [x] **Subtask 2.1.1:** Create `bf6900_service.rs` following `autoquant_meril.rs` pattern
 - [x] **Subtask 2.1.2:** Implement TCP listener for HL7 connections
 - [x] **Subtask 2.1.3:** Add connection state management for HL7 MLLP protocol
 - [x] **Subtask 2.1.4:** Create HL7 message processing pipeline
@@ -55,19 +55,19 @@ Implementation of a BF-6500 Hematology analyzer interface using HL7 protocol, fo
 
 **Dependencies:** Phase 1 complete ✅  
 **Key Files:**
-- `src-tauri/src/services/bf6500_service.rs` ✅
+- `src-tauri/src/services/bf6900_service.rs` ✅
 - `src-tauri/src/services/mod.rs` ✅
 
 #### Task 2.2: Configuration Management ✅
-- [x] **Subtask 2.2.1:** Create `bf6500_handler.rs` command handlers
+- [x] **Subtask 2.2.1:** Create `bf6900_handler.rs` command handlers
 - [x] **Subtask 2.2.2:** Implement configuration validation for HL7 protocol
 - [x] **Subtask 2.2.3:** Add service start/stop Tauri commands
-- [x] **Subtask 2.2.4:** Create status monitoring commands specific to BF-6500
+- [x] **Subtask 2.2.4:** Create status monitoring commands specific to BF-6900
 - [x] **Subtask 2.2.5:** Implement configuration persistence to JSON store
 
 **Dependencies:** Task 2.1 ✅  
 **Key Files:**
-- `src-tauri/src/api/commands/bf6500_handler.rs` ✅
+- `src-tauri/src/api/commands/bf6900_handler.rs` ✅
 - `src-tauri/src/api/commands/mod.rs` ✅
 
 ---
@@ -110,11 +110,11 @@ Implementation of a BF-6500 Hematology analyzer interface using HL7 protocol, fo
 **Estimated Duration:** 2-3 days
 
 #### Task 4.1: App State Integration
-- [ ] **Subtask 4.1.1:** Extend `AppState` to include BF-6500 service
+- [ ] **Subtask 4.1.1:** Extend `AppState` to include BF-6900 service
 - [ ] **Subtask 4.1.2:** Add service initialization in app startup
 - [ ] **Subtask 4.1.3:** Implement service lifecycle management
 - [ ] **Subtask 4.1.4:** Add auto-start configuration support
-- [ ] **Subtask 4.1.5:** Create default BF-6500 analyzer configuration
+- [ ] **Subtask 4.1.5:** Create default BF-6900 analyzer configuration
 
 **Dependencies:** Phase 3 complete  
 **Key Files:**
@@ -122,7 +122,7 @@ Implementation of a BF-6500 Hematology analyzer interface using HL7 protocol, fo
 - `src-tauri/src/services/bootup.rs` (update)
 
 #### Task 4.2: Frontend Events
-- [ ] **Subtask 4.2.1:** Define BF-6500 event types for frontend
+- [ ] **Subtask 4.2.1:** Define BF-6900 event types for frontend
 - [ ] **Subtask 4.2.2:** Implement event emission in service
 - [ ] **Subtask 4.2.3:** Add event handling in app state
 - [ ] **Subtask 4.2.4:** Create frontend event listeners (if needed)
@@ -130,11 +130,11 @@ Implementation of a BF-6500 Hematology analyzer interface using HL7 protocol, fo
 
 **Dependencies:** Task 4.1  
 **Event Types:**
-- `bf6500:analyzer-connected`
-- `bf6500:hl7-message`
-- `bf6500:lab-results`
-- `bf6500:analyzer-status-updated`
-- `bf6500:error`
+- `bf6900:analyzer-connected`
+- `bf6900:hl7-message`
+- `bf6900:lab-results`
+- `bf6900:analyzer-status-updated`
+- `bf6900:error`
 
 ---
 
@@ -152,7 +152,7 @@ Implementation of a BF-6500 Hematology analyzer interface using HL7 protocol, fo
 **Dependencies:** Phase 4 complete  
 **Test Files:**
 - `src-tauri/src/protocol/hl7_parser_tests.rs`
-- `src-tauri/src/services/bf6500_service_tests.rs`
+- `src-tauri/src/services/bf6900_service_tests.rs`
 
 #### Task 5.2: Integration Testing
 - [ ] **Subtask 5.2.1:** Create mock HL7 server for testing
@@ -181,8 +181,8 @@ Implementation of a BF-6500 Hematology analyzer interface using HL7 protocol, fo
 ### Configuration Parameters
 ```json
 {
-  "id": "bf6500-001",
-  "name": "BF-6500 Hematology Analyzer",
+  "id": "bf6900-001",
+  "name": "BF-6900 Hematology Analyzer",
   "protocol": "HL7_V24",
   "connection_type": "TcpIp",
   "ip_address": "192.168.1.100",
@@ -217,9 +217,9 @@ src-tauri/src/
 │   ├── mod.rs
 │   └── hl7_parser.rs
 ├── services/
-│   └── bf6500_service.rs
+│   └── bf6900_service.rs
 ├── api/commands/
-│   └── bf6500_handler.rs
+│   └── bf6900_handler.rs
 └── models/
     └── hematology.rs
 ```
@@ -227,10 +227,10 @@ src-tauri/src/
 ### Files to Modify
 ```
 src-tauri/src/
-├── app_state.rs               # Add BF-6500 service integration
+├── app_state.rs               # Add BF-6900 service integration
 ├── services/
 │   ├── mod.rs                 # Export new service
-│   └── bootup.rs             # Add BF-6500 initialization
+│   └── bootup.rs             # Add BF-6900 initialization
 ├── api/commands/
 │   └── mod.rs                # Export new commands
 └── models/
@@ -251,8 +251,8 @@ src-tauri/src/
 - `log` (logging) - ✅ Already available
 
 ### External Requirements
-- BF-6500 LIS documentation (specific HL7 details)
-- Network access to BF-6500 analyzer
+- BF-6900 LIS documentation (specific HL7 details)
+- Network access to BF-6900 analyzer
 - Test data samples for validation
 
 ---
@@ -261,7 +261,7 @@ src-tauri/src/
 
 ### High Risk Items
 - **HL7 Protocol Complexity:** HL7 v2.4 has many variations and optional fields
-- **Device Compatibility:** BF-6500 may have vendor-specific HL7 extensions
+- **Device Compatibility:** BF-6900 may have vendor-specific HL7 extensions
 - **Network Configuration:** TCP/IP connectivity issues with lab equipment
 
 ### Mitigation Strategies
@@ -275,7 +275,7 @@ src-tauri/src/
 ## Success Criteria
 
 ### Functional Requirements
-- [ ] BF-6500 analyzer connects successfully via TCP/IP
+- [ ] BF-6900 analyzer connects successfully via TCP/IP
 - [ ] HL7 messages are parsed correctly
 - [ ] Hematology results are extracted and processed
 - [ ] Frontend receives real-time updates
@@ -293,10 +293,10 @@ src-tauri/src/
 
 ## Next Steps
 
-1. **Extract BF-6500 Specifications** - Review PDF documentation for exact HL7 details
+1. **Extract BF-6900 Specifications** - Review PDF documentation for exact HL7 details
 2. **Start Phase 1** - Create HL7 protocol foundation
 3. **Iterative Development** - Complete phases sequentially with testing
-4. **Integration Testing** - Test with actual BF-6500 hardware when available
+4. **Integration Testing** - Test with actual BF-6900 hardware when available
 
 ---
 

@@ -1,9 +1,9 @@
-# BF-6500 Hematology Analyzer Implementation Guide
+# BF-6900 Hematology Analyzer Implementation Guide
 
 ## Project Context
 
 ### Overview
-This project is a Laboratory Information System (LIS) middleware built with Tauri (Rust backend + Web frontend) that interfaces with laboratory analyzers. The system currently supports the Meril AutoQuant analyzer using the ASTM protocol and is being extended to support the BF-6500 Hematology analyzer using the HL7 protocol.
+This project is a Laboratory Information System (LIS) middleware built with Tauri (Rust backend + Web frontend) that interfaces with laboratory analyzers. The system currently supports the Meril AutoQuant analyzer using the ASTM protocol and is being extended to support the BF-6900 Hematology analyzer using the HL7 protocol.
 
 ### Current Architecture
 
@@ -82,7 +82,7 @@ pub struct AutoQuantMerilService<R: Runtime> {
 - **Handshake:** ENQ/ACK protocol for transmission control
 - **Records:** H (Header), P (Patient), O (Order), R (Result), L (Terminator)
 
-#### HL7 Protocol (Target - BF-6500)
+#### HL7 Protocol (Target - BF-6900)
 - **Frame Structure:** `<VT><Message><FS><CR>` (MLLP)
 - **Message Format:** Pipe-delimited segments with structured fields
 - **Handshake:** MLLP acknowledgment with ACK/NAK responses
@@ -132,13 +132,13 @@ CREATE TABLE analyzers (
 }
 ```
 
-#### Target BF-6500 Configuration
+#### Target BF-6900 Configuration
 ```json
 {
   "analyzer": {
-    "id": "bf6500-hematology-001",
-    "name": "BF-6500 Hematology Analyzer",
-    "model": "BF-6500",
+    "id": "bf6900-hematology-001",
+    "name": "BF-6900 Hematology Analyzer",
+    "model": "BF-6900",
     "manufacturer": "Mindray",
     "connection_type": "TcpIp",
     "ip_address": "192.168.1.101",
@@ -168,7 +168,7 @@ CREATE TABLE analyzers (
 6. **Storage:** Persist to SQLite database
 7. **Notification:** Emit events to frontend via Tauri
 
-#### Target HL7 Flow (BF-6500)
+#### Target HL7 Flow (BF-6900)
 1. **Connection:** TCP listener accepts analyzer connection
 2. **Handshake:** MLLP protocol establishment
 3. **Data Reception:** HL7 message collection with MLLP framing
@@ -223,7 +223,7 @@ The existing code includes unit tests for:
 - IP address and port validation
 - Protocol-specific validation functions
 
-#### Required Testing for BF-6500
+#### Required Testing for BF-6900
 - HL7 message parsing unit tests
 - MLLP frame handling tests
 - Connection state machine tests
@@ -273,7 +273,7 @@ pub async fn start_meril_service<R: tauri::Runtime>(
 - Event-driven architecture prevents blocking
 
 #### Scalability
-- Multiple analyzer support (Meril + BF-6500 + future analyzers)
+- Multiple analyzer support (Meril + BF-6900 + future analyzers)
 - Configurable timeouts and retry logic
 - Resource cleanup and connection limits
 
@@ -330,4 +330,4 @@ nramh-lis-2/
 └── package.json
 ```
 
-This implementation guide provides the necessary context for understanding the existing architecture and implementing the BF-6500 HL7 integration following established patterns and best practices.
+This implementation guide provides the necessary context for understanding the existing architecture and implementing the BF-6900 HL7 integration following established patterns and best practices.

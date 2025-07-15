@@ -1,15 +1,15 @@
 # CLAUDE Assistant Instructions
 
-## Project: BF-6500 Hematology Analyzer HL7 Integration
+## Project: BF-6900 Hematology Analyzer HL7 Integration
 
 ### Overview
-This file contains step-by-step instructions for Claude to help complete the BF-6500 Hematology analyzer integration with HL7 protocol support. The implementation follows the existing Meril AutoQuant ASTM pattern.
+This file contains step-by-step instructions for Claude to help complete the BF-6900 Hematology analyzer integration with HL7 protocol support. The implementation follows the existing Meril AutoQuant ASTM pattern.
 
 ### Reference Files
 Before starting any task, always read these files for context:
 - `docs/status.md` - Current implementation status and detailed task breakdown
 - `docs/implementation.md` - Project architecture and implementation context
-- `docs/BF-6500 LIS.pdf` - BF-6500 specific HL7 requirements (extract details as needed)
+- `docs/CQ 5 Plus Communication Protocol.pdf` - BF-6900 specific HL7 requirements (extract details as needed)
 - `src-tauri/src/services/autoquant_meril.rs` - Reference implementation pattern
 - `src-tauri/src/api/commands/meril_handler.rs` - Reference command pattern
 - `src-tauri/src/app_state.rs` - App state management pattern
@@ -41,7 +41,7 @@ Before starting any task, always read these files for context:
 ### Task 1.1: Create HL7 Protocol Foundation
 
 **Before starting:**
-1. Read `docs/BF-6500 LIS.pdf` to extract specific HL7 details
+1. Read `docs/BF-6900 LIS.pdf` to extract specific HL7 details
 2. Review ASTM implementation in `autoquant_meril.rs` for patterns
 3. Check existing protocol constants and structures
 
@@ -104,7 +104,7 @@ mod tests {
 }
 ```
 
-### Task 1.2: Define BF-6500 Data Models
+### Task 1.2: Define BF-6900 Data Models
 
 #### Subtask 1.2.1: Extend Protocol enum
 Update `src-tauri/src/models/analyzer.rs`:
@@ -116,11 +116,11 @@ pub enum Protocol {
 }
 ```
 
-#### Subtask 1.2.2: Create BF6500Event enum
+#### Subtask 1.2.2: Create BF6900Event enum
 In `src-tauri/src/models/hematology.rs` (new file):
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum BF6500Event {
+pub enum BF6900Event {
     AnalyzerConnected { analyzer_id: String, remote_addr: String, timestamp: DateTime<Utc> },
     HL7MessageReceived { analyzer_id: String, message_type: String, raw_data: String, timestamp: DateTime<Utc> },
     HematologyResultProcessed { analyzer_id: String, patient_data: Option<PatientData>, test_results: Vec<HematologyResult>, timestamp: DateTime<Utc> },
@@ -167,20 +167,20 @@ Update `src-tauri/src/models/mod.rs` to export new hematology module.
 
 ## Phase 2: Service Implementation
 
-### Task 2.1: Create BF-6500 Service
+### Task 2.1: Create BF-6900 Service
 
 **Before starting:**
 1. Study the complete `autoquant_meril.rs` implementation
 2. Understand the event-driven architecture pattern
 3. Note the connection management approach
 
-#### Subtask 2.1.1: Create bf6500_service.rs skeleton
-Create `src-tauri/src/services/bf6500_service.rs` following `autoquant_meril.rs` structure:
+#### Subtask 2.1.1: Create bf6900_service.rs skeleton
+Create `src-tauri/src/services/bf6900_service.rs` following `autoquant_meril.rs` structure:
 
 1. **Copy the overall structure** from AutoQuantMerilService
-2. **Rename appropriately** to BF6500Service
+2. **Rename appropriately** to BF6900Service
 3. **Replace ASTM constants** with HL7/MLLP constants
-4. **Update event types** to use BF6500Event
+4. **Update event types** to use BF6900Event
 5. **Modify connection state** for HL7 MLLP protocol
 
 #### Subtask 2.1.2: Implement TCP listener
@@ -190,7 +190,7 @@ async fn handle_connections_loop(
     listener: Arc<Mutex<Option<TcpListener>>>,
     connections: Arc<RwLock<HashMap<String, Connection>>>,
     is_running: Arc<RwLock<bool>>,
-    event_sender: mpsc::Sender<BF6500Event>,
+    event_sender: mpsc::Sender<BF6900Event>,
     analyzer_id: String,
 ) {
     // Follow autoquant_meril.rs pattern but adapt for HL7
@@ -217,7 +217,7 @@ Implement `process_hl7_data()` function similar to `process_astm_data()`:
 async fn process_hl7_data(
     connection: &mut Connection,
     data: &[u8],
-    event_sender: &mpsc::Sender<BF6500Event>,
+    event_sender: &mpsc::Sender<BF6900Event>,
 ) -> Result<(), String> {
     // Process MLLP frames and extract HL7 messages
     // Parse HL7 segments
@@ -228,25 +228,25 @@ async fn process_hl7_data(
 ```
 
 #### Subtask 2.1.5: Implement event emission
-Follow the existing pattern but emit BF6500Event types.
+Follow the existing pattern but emit BF6900Event types.
 
 #### Subtask 2.1.6: Add service lifecycle management
 Implement start() and stop() methods following the existing pattern.
 
 ### Task 2.2: Configuration Management
 
-#### Subtask 2.2.1: Create bf6500_handler.rs
-Create `src-tauri/src/api/commands/bf6500_handler.rs` based on `meril_handler.rs`:
+#### Subtask 2.2.1: Create bf6900_handler.rs
+Create `src-tauri/src/api/commands/bf6900_handler.rs` based on `meril_handler.rs`:
 
 1. **Copy the structure** from meril_handler.rs
-2. **Rename functions** to bf6500_* variants
+2. **Rename functions** to bf6900_* variants
 3. **Update validation** for HL7 protocol
-4. **Change store name** to "bf6500.json"
+4. **Change store name** to "bf6900.json"
 
 #### Subtask 2.2.2: Implement HL7 configuration validation
-Create `validate_bf6500_config()` function:
+Create `validate_bf6900_config()` function:
 ```rust
-fn validate_bf6500_config(analyzer: &Analyzer) -> Result<(), String> {
+fn validate_bf6900_config(analyzer: &Analyzer) -> Result<(), String> {
     // Validate HL7 protocol is selected
     // Validate IP/port configuration
     // Validate HL7-specific settings
@@ -256,17 +256,17 @@ fn validate_bf6500_config(analyzer: &Analyzer) -> Result<(), String> {
 
 #### Subtask 2.2.3: Add Tauri commands
 Implement these commands following the meril pattern:
-- `fetch_bf6500_config()`
-- `update_bf6500_config()`
-- `start_bf6500_service()`
-- `stop_bf6500_service()`
-- `get_bf6500_service_status()`
+- `fetch_bf6900_config()`
+- `update_bf6900_config()`
+- `start_bf6900_service()`
+- `stop_bf6900_service()`
+- `get_bf6900_service_status()`
 
 #### Subtask 2.2.4: Create status monitoring
 Implement status monitoring similar to Meril service.
 
 #### Subtask 2.2.5: Implement configuration persistence
-Save/load configuration to "bf6500.json" store.
+Save/load configuration to "bf6900.json" store.
 
 ---
 
@@ -346,27 +346,27 @@ Ensure proper resource cleanup on connection close.
 #### Subtask 4.1.1: Extend AppState
 Update `src-tauri/src/app_state.rs`:
 
-1. **Add BF6500 service field** to AppState struct
-2. **Create BF6500 service** in new() method
-3. **Add event handling** for BF6500Event types
+1. **Add BF6900 service field** to AppState struct
+2. **Create BF6900 service** in new() method
+3. **Add event handling** for BF6900Event types
 4. **Implement service lifecycle** methods
 
 #### Subtask 4.1.2: Add service initialization
-Add BF6500 service initialization in app startup.
+Add BF6900 service initialization in app startup.
 
 #### Subtask 4.1.3: Implement lifecycle management
-Add start/stop methods for BF6500 service.
+Add start/stop methods for BF6900 service.
 
 #### Subtask 4.1.4: Add auto-start support
 Support activate_on_start configuration.
 
 #### Subtask 4.1.5: Create default configuration
-Implement `create_default_bf6500_analyzer()` function.
+Implement `create_default_bf6900_analyzer()` function.
 
 ### Task 4.2: Frontend Events
 
 #### Subtask 4.2.1: Define event types
-Add BF6500 event emission in app_state.rs event handler.
+Add BF6900 event emission in app_state.rs event handler.
 
 #### Subtask 4.2.2: Implement event emission
 Follow the existing pattern for emitting events to frontend.
@@ -423,7 +423,7 @@ Test with multiple connections and high message volume.
 1. **Read the status.md file** to understand current progress
 2. **Review relevant reference files** mentioned above
 3. **Understand the existing pattern** from Meril implementation
-4. **Plan the specific implementation** for HL7/BF-6500
+4. **Plan the specific implementation** for HL7/BF-6900
 5. **Write the code** following existing conventions
 6. **Test thoroughly** with appropriate test cases
 7. **Update status.md** with completion status

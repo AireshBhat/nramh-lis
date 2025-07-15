@@ -31,7 +31,7 @@ flowchart TD
 
   subgraph L5[Protocol Layer 📡]
     ASTM_HANDLER[ASTM Protocol Handler<br/>↳ MERIL AutoQuant Support]
-    HL7_HANDLER[HL7 v2.4 Handler<br/>↳ Afinion/BF-6500 Support]
+    HL7_HANDLER[HL7 v2.4 Handler<br/>↳ Afinion/BF-6900 Support]
     MSG_PARSER[Message Parser<br/>↳ Protocol-Agnostic Interface]
     ACK_MGR[Acknowledgment Manager<br/>↳ Response Handling]
   end
@@ -116,14 +116,14 @@ flowchart TD
   subgraph MACHINES[Lab Machines 🧪]
     MERIL[MERIL AutoQuant<br/>↳ ASTM via Serial]
     AFINION[Afinion 2<br/>↳ HL7 via TCP/IP]
-    BF6500[BF-6500<br/>↳ HL7 via TCP/IP]
+    BF6900[BF-6900<br/>↳ HL7 via TCP/IP]
     GENERIC[Generic Machine<br/>↳ Configurable Protocol]
   end
 
   %% Machine Connections
   MERIL -->|RS-232| SERIAL_CONN
   AFINION -->|TCP/IP| TCP_CONN
-  BF6500 -->|TCP/IP| TCP_CONN
+  BF6900 -->|TCP/IP| TCP_CONN
   GENERIC -->|Configurable| CONN_POOL
 
   %%========================
@@ -148,5 +148,5 @@ flowchart TD
   class SERIAL_CONN,TCP_CONN,CONN_POOL,RETRY_MGR transport
   class CONFIG_STORE,RESULT_BUFFER,LOG_STORE,METRICS_STORE data
   class HIS_ADAPTER,FILE_EXPORT,WEBHOOK_SVC integration
-  class MERIL,AFINION,BF6500,GENERIC machine
+  class MERIL,AFINION,BF6900,GENERIC machine
   class EXTERNAL_HIS,EXTERNAL_STORAGE,EXTERNAL_WEBHOOK external

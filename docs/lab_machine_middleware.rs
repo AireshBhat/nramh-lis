@@ -11,7 +11,7 @@ use async_trait::async_trait;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Protocol {
     Astm,      // MERIL AutoQuant
-    Hl7V24,    // Afinion 2, BF-6500
+    Hl7V24,    // Afinion 2, BF-6900
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -178,7 +178,7 @@ impl ProtocolHandler for AstmHandler {
     }
 }
 
-/// HL7 Protocol Handler - for Afinion 2 and BF-6500
+/// HL7 Protocol Handler - for Afinion 2 and BF-6900
 pub struct Hl7Handler {
     device_name: String,
     version: String,
@@ -397,7 +397,7 @@ impl LabMachine {
         Self::new(machine_id, machine_type, handler, transport)
     }
     
-    /// Create HL7-based lab machine (like Afinion 2, BF-6500)
+    /// Create HL7-based lab machine (like Afinion 2, BF-6900)
     pub fn new_hl7_machine(
         machine_id: String,
         machine_type: String,
@@ -515,15 +515,15 @@ impl LabMachineFactory {
         )
     }
     
-    pub fn create_bf6500(
+    pub fn create_bf6900(
         machine_id: String,
         transport: Transport,
     ) -> LabMachine {
         LabMachine::new_hl7_machine(
             machine_id,
-            "BF-6500".to_string(),
+            "BF-6900".to_string(),
             transport,
-            "BF-6500".to_string(),
+            "BF-6900".to_string(),
         )
     }
 }

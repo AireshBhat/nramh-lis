@@ -1,9 +1,9 @@
-# BF-6500 Automatic Hematology Analyzer
+# BF-6900 Automatic Hematology Analyzer
 ## Network Communication Interface Protocol V1.1
 
 ### A.1 Overview
 
-This protocol is used for information transmission between BF-6500 Automatic Hematology Analyzer and LIS. It is based on HL7 standard, HL7 version is 2.4.
+This protocol is used for information transmission between BF-6900 Automatic Hematology Analyzer and LIS. It is based on HL7 standard, HL7 version is 2.4.
 
 ### A.2 Terms
 
@@ -60,14 +60,14 @@ MSH –message head: this message segment is required item，includes HL7 messag
 
 **Information Example:**
 ```
-MSH|^~\&|BF-6500|1234567890|||20100419104618||ORU^R01|361|P^S|2.4|||||CHN|UNICODE<cr>
+MSH|^~\&|BF-6900|1234567890|||20100419104618||ORU^R01|361|P^S|2.4|||||CHN|UNICODE<cr>
 ```
 
 | Serial NO. | Field Name | Length | HL7 Advised Length | Explanation | Example |
 |------------|------------|--------|-------------------|-------------|---------|
 | 1 | Field Separator | 1 | 1 | Include the first field separator after message segment, used for regulating other message field separator value | \| |
 | 2 | Coded Character | 4 | 4 | Include discreteness separator, repeat separator, ESC, sub-discreteness separator | ^~\& |
-| 3 | Send Program | 7 | 180 | Send terminal apply program value：BF-6500 | BF-6500 |
+| 3 | Send Program | 7 | 180 | Send terminal apply program value：BF-6900 | BF-6900 |
 | 4 | Instrument Code | 10 | 180 | Sending terminal instrument, value: instrument code | 1234567890 |
 | 7 | Send Time | 14 | 26 | Message created time （form As YYYY[MM[DD[HH[MM[SS]]]]]），Take system time value | 20110310144704 |
 | 9 | Message Type | 7 | 7 | Message type, form as "information type" event type, value: ORU^R01(Sample) OUL^R21 （LJ/X、XB QC） | ORU^R01 |
@@ -214,7 +214,7 @@ This protocol uses the custom coding approach.
 ### 1. Patient Sample
 
 ```
-<SB> MSH|^~\&|BF-6500||||20110310150421||ORU^R01|8|P^S|2.4|||||CHN|UTF-8<cr>
+<SB> MSH|^~\&|BF-6900||||20110310150421||ORU^R01|8|P^S|2.4|||||CHN|UTF-8<cr>
 PID||1234567890|||Wang Sanqiang|||Male<cr>
 PV1|||门诊^^235689||||Doctor Wang|Zhang San|Li Si<cr>
 OBR||2|12345|1001^ Count Results||20110310112251|20110310112409|||||| |20110310 112251||||0|0 <cr>
@@ -258,7 +258,7 @@ OBX|34|ED|2104^WBC Scattergram.BMP||……BMP binary system data change to BASE6
 ### 2. L-J/X QC
 
 ```
-<SB>MSH|^~\&|BF-6500||||20110311091016||OUL^R21||P^LJ|2.4|||||CHN|TUF-8<cr>
+<SB>MSH|^~\&|BF-6900||||20110311091016||OUL^R21||P^LJ|2.4|||||CHN|TUF-8<cr>
 OBR||2|123 |1002^ LJ QC||20100819 |20110217131356|||||| |||||0|0<cr>
 OBX|1|IS|2006^Level||0||||||F<cr>
 OBX|2|NM|2007^V_WBC||4.63||||||F<cr>
@@ -270,7 +270,7 @@ OBX|3|NM|2008^V_BAS_c||4.63||||||F<cr>
 ### 3. X-B QC
 
 ```
-<SB>MSH|^~\&| BF-6500||||20110311091040||OUL^R21||P^XB|2.4|||||CHN|UTF-8<cr>
+<SB>MSH|^~\&| BF-6900||||20110311091040||OUL^R21||P^XB|2.4|||||CHN|UTF-8<cr>
 OBR||||1004^ XB QC|||20071207160000||||||||||||<cr>
 OBX|1|NM|2079^XB_Num||20||||||F<cr>
 OBX|2|NM|2073^m_MCV_R||12.204||||||F<cr>
@@ -287,4 +287,4 @@ OBX|10|NM|2022^V_MCHC||4.63||||||F<cr>
 
 ---
 
-*This document outlines the complete HL7 v2.4 implementation for the BF-6500 Automatic Hematology Analyzer's network communication interface protocol.*
+*This document outlines the complete HL7 v2.4 implementation for the BF-6900 Automatic Hematology Analyzer's network communication interface protocol.*

@@ -12,4 +12,4 @@ pub use result::{ResultStatus, TestResult};
 pub use sample::{Sample, SampleStatus};
 pub use test_order::TestOrder;
 pub use upload::{ResultUploadStatus, UploadStatus};
-pub use hematology::{BF6500Event, HematologyResult, HL7Settings, BF6500Config};
+pub use hematology::{BF6900Event, HematologyResult, HL7Settings, BF6900Config};

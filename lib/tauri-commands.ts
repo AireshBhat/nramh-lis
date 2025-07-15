@@ -19,7 +19,7 @@ export interface AnalyzerResponse {
   updated_at: string;
 }
 
-// HL7 Settings type for BF-6500
+// HL7 Settings type for BF-6900
 export interface HL7Settings {
   timeout_ms: number;
   retry_attempts: number;
@@ -34,15 +34,15 @@ export interface MerilConfigResponse {
   error_message?: string;
 }
 
-// BF-6500 specific response types
-export interface BF6500ConfigResponse {
+// BF-6900 specific response types
+export interface BF6900ConfigResponse {
   success: boolean;
   analyzer?: AnalyzerResponse;
   hl7_settings?: HL7Settings;
   error_message?: string;
 }
 
-export interface BF6500ServiceStatus {
+export interface BF6900ServiceStatus {
   is_running: boolean;
   connections_count: number;
   analyzer_status: string;
@@ -82,26 +82,26 @@ export const stopMerilService = async (): Promise<void> => {
   return invoke('stop_meril_service');
 };
 
-// BF-6500 commands
-export const fetchBF6500Config = async (): Promise<BF6500ConfigResponse> => {
-  return invoke('fetch_bf6500_config');
+// BF-6900 commands
+export const fetchBF6900Config = async (): Promise<BF6900ConfigResponse> => {
+  return invoke('fetch_bf6900_config');
 };
 
-export const updateBF6500Config = async (
+export const updateBF6900Config = async (
   analyzer: any,
   hl7Settings: HL7Settings
-): Promise<BF6500ConfigResponse> => {
-  return invoke('update_bf6500_config', { analyzer, hl7_settings: hl7Settings });
+): Promise<BF6900ConfigResponse> => {
+  return invoke('update_bf6900_config', { analyzer, hl7_settings: hl7Settings });
 };
 
-export const getBF6500ServiceStatus = async (): Promise<BF6500ServiceStatus> => {
-  return invoke('get_bf6500_service_status');
+export const getBF6900ServiceStatus = async (): Promise<BF6900ServiceStatus> => {
+  return invoke('get_bf6900_service_status');
 };
 
-export const startBF6500Service = async (): Promise<void> => {
-  return invoke('start_bf6500_service');
+export const startBF6900Service = async (): Promise<void> => {
+  return invoke('start_bf6900_service');
 };
 
-export const stopBF6500Service = async (): Promise<void> => {
-  return invoke('stop_bf6500_service');
+export const stopBF6900Service = async (): Promise<void> => {
+  return invoke('stop_bf6900_service');
 }; 
