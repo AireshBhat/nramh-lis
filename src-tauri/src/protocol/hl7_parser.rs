@@ -90,6 +90,100 @@ pub fn get_cq5_parameter_codes() -> HashMap<String, String> {
     codes
 }
 
+// ============================================================================
+// CELQUANT IDENTIFICATION MESSAGE HANDLING
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CelquantIdentificationMessage {
+    pub device_name: String,
+    pub version: String,
+    pub full_message: String,
+    pub timestamp: DateTime<Utc>,
+}
+
+/// Detects if a message is a Celquant identification message
+/// Format: "i am [version]" with simplified MLLP framing
+pub fn is_celquant_identification(data: &[u8]) -> bool {
+    if data.len() < 8 {
+        return false;
+    }
+    
+    // Check for MLLP start block (VT = 0x0B)
+    if data[0] != MLLP_START_BLOCK {
+        return false;
+    }
+    
+    // Check for "i am " pattern after start block
+    let content = &data[1..];
+    content.starts_with(b"i am ")
+}
+
+/// Parses a Celquant identification message
+/// Expected format: <VT>i am [version]<CR>
+pub fn parse_celquant_identification(data: &[u8]) -> Result<CelquantIdentificationMessage, String> {
+    if !is_celquant_identification(data) {
+        return Err("Not a valid Celquant identification message".to_string());
+    }
+    
+    // Skip the start block (VT)
+    let content = &data[1..];
+    
+    // Find the end (CR) and extract the message
+    let end_pos = content.iter().position(|&b| b == MLLP_CARRIAGE_RETURN)
+        .ok_or("Missing carriage return in identification message")?;
+    
+    let message_bytes = &content[..end_pos];
+    let message_str = String::from_utf8(message_bytes.to_vec())
+        .map_err(|e| format!("Invalid UTF-8 in identification message: {}", e))?;
+    
+    // Parse "i am [version]" format
+    if !message_str.starts_with("i am ") {
+        return Err("Invalid identification message format".to_string());
+    }
+    
+    let version = message_str[5..].trim().to_string(); // Skip "i am "
+    
+    Ok(CelquantIdentificationMessage {
+        device_name: "Celquant".to_string(),
+        version,
+        full_message: message_str,
+        timestamp: Utc::now(),
+    })
+}
+
+/// Creates an HL7 v2.3.1 acknowledgment for Celquant identification
+/// Returns a properly formatted MLLP-framed ACK message
+pub fn create_celquant_ack(original_message: &CelquantIdentificationMessage) -> Vec<u8> {
+    let timestamp = Utc::now().format("%Y%m%d%H%M%S").to_string();
+    let control_id = "1"; // Simple control ID for identification ACK
+    
+    // Create HL7 v2.3.1 ACK message
+    let msh_segment = format!(
+        "MSH|^~\\&|LIS||{}||{}||ACK|{}|P|2.3.1||||||UTF-8",
+        original_message.device_name,
+        timestamp,
+        control_id
+    );
+    
+    let msa_segment = format!(
+        "MSA|AA|{}|Device identification acknowledged",
+        control_id
+    );
+    
+    // Combine segments with carriage return
+    let hl7_message = format!("{}\r{}", msh_segment, msa_segment);
+    
+    // Create MLLP frame: <VT>message<FS><CR>
+    let mut mllp_frame = Vec::new();
+    mllp_frame.push(MLLP_START_BLOCK); // VT
+    mllp_frame.extend_from_slice(hl7_message.as_bytes());
+    mllp_frame.push(MLLP_END_BLOCK); // FS
+    mllp_frame.push(MLLP_CARRIAGE_RETURN); // CR
+    
+    mllp_frame
+}
+
 /// Creates mapping of OBR-4 service type codes
 pub fn get_obr4_service_codes() -> HashMap<String, String> {
     let mut codes = HashMap::new();
@@ -832,5 +926,55 @@ mod tests {
         assert_eq!(orc.order_control, "RF");
         assert_eq!(orc.filler_order_number, "SampleID");
         assert_eq!(orc.order_status, "IP");
+    }
+
+    #[test]
+    fn test_celquant_identification_detection() {
+        // Test valid Celquant identification message
+        let valid_data = b"\x0Bi am 01.015.010.021\x0D";
+        assert!(is_celquant_identification(valid_data));
+        
+        // Test invalid messages
+        let invalid_no_vt = b"i am 01.015.010.021\x0D";
+        assert!(!is_celquant_identification(invalid_no_vt));
+        
+        let invalid_wrong_content = b"\x0BHello World\x0D";
+        assert!(!is_celquant_identification(invalid_wrong_content));
+        
+        let too_short = b"\x0Bi am";
+        assert!(!is_celquant_identification(too_short));
+    }
+
+    #[test]
+    fn test_celquant_identification_parsing() {
+        let test_data = b"\x0Bi am 01.015.010.021\x0D";
+        let result = parse_celquant_identification(test_data).unwrap();
+        
+        assert_eq!(result.device_name, "Celquant");
+        assert_eq!(result.version, "01.015.010.021");
+        assert_eq!(result.full_message, "i am 01.015.010.021");
+    }
+
+    #[test]
+    fn test_celquant_ack_creation() {
+        let identification = CelquantIdentificationMessage {
+            device_name: "Celquant".to_string(),
+            version: "01.015.010.021".to_string(),
+            full_message: "i am 01.015.010.021".to_string(),
+            timestamp: Utc::now(),
+        };
+        
+        let ack = create_celquant_ack(&identification);
+        
+        // Check MLLP framing
+        assert_eq!(ack[0], MLLP_START_BLOCK); // VT
+        assert_eq!(ack[ack.len() - 2], MLLP_END_BLOCK); // FS
+        assert_eq!(ack[ack.len() - 1], MLLP_CARRIAGE_RETURN); // CR
+        
+        // Convert to string for content checking
+        let message_content = String::from_utf8(ack[1..ack.len()-2].to_vec()).unwrap();
+        assert!(message_content.contains("MSH|^~\\&|LIS||Celquant|"));
+        assert!(message_content.contains("MSA|AA|1|Device identification acknowledged"));
+        assert!(message_content.contains("2.3.1"));
     }
 }

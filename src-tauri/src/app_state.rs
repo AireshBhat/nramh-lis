@@ -3,7 +3,7 @@ use tauri::{AppHandle, Emitter, Runtime};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
-use crate::models::Analyzer;
+use crate::models::{ Analyzer, hematology::BF6900Event };
 use crate::services::autoquant_meril::AutoQuantMerilService;
 use crate::services::bf6900_service::BF6900Service;
 use crate::services::his_client::HisClient;
@@ -479,7 +479,7 @@ impl<R: Runtime> AppState<R> {
     ) {
         while let Some(event) = event_receiver.recv().await {
             match event {
-                crate::models::hematology::BF6900Event::AnalyzerConnected {
+                BF6900Event::AnalyzerConnected {
                     analyzer_id,
                     remote_addr,
                     timestamp,
@@ -496,7 +496,7 @@ impl<R: Runtime> AppState<R> {
                         }),
                     );
                 }
-                crate::models::hematology::BF6900Event::AnalyzerDisconnected {
+                BF6900Event::AnalyzerDisconnected {
                     analyzer_id,
                     timestamp,
                 } => {
@@ -511,7 +511,7 @@ impl<R: Runtime> AppState<R> {
                         }),
                     );
                 }
-                crate::models::hematology::BF6900Event::HL7MessageReceived {
+                BF6900Event::HL7MessageReceived {
                     analyzer_id,
                     message_type,
                     raw_data,
@@ -535,7 +535,7 @@ impl<R: Runtime> AppState<R> {
                         }),
                     );
                 }
-                crate::models::hematology::BF6900Event::HematologyResultProcessed {
+                BF6900Event::HematologyResultProcessed {
                     analyzer_id,
                     patient_id,
                     patient_data,
@@ -582,7 +582,7 @@ impl<R: Runtime> AppState<R> {
                         }),
                     );
                 }
-                crate::models::hematology::BF6900Event::AnalyzerStatusUpdated {
+                BF6900Event::AnalyzerStatusUpdated {
                     analyzer_id,
                     status,
                     timestamp,
@@ -599,7 +599,28 @@ impl<R: Runtime> AppState<R> {
                         }),
                     );
                 }
-                crate::models::hematology::BF6900Event::Error {
+                BF6900Event::CelquantIdentificationReceived {
+                    analyzer_id,
+                    device_name,
+                    version,
+                    message,
+                    timestamp,
+                } => {
+                    log::info!("Celquant identification received for analyzer {}: {} - {}", analyzer_id, device_name, version);
+
+                    // Emit event to frontend
+                    let _ = app.emit(
+                        "bf6900:celquant-identification",
+                        serde_json::json!({
+                            "analyzer_id": analyzer_id, 
+                            "device_name": device_name,
+                            "version": version,
+                            "message": message,
+                            "timestamp": timestamp
+                        }),
+                    );
+                }
+                BF6900Event::Error {
                     analyzer_id,
                     error,
                     timestamp,

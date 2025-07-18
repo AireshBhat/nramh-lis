@@ -64,6 +64,14 @@ pub enum BF6900Event {
         error: String,
         timestamp: DateTime<Utc>,
     },
+    /// Celquant identification message received
+    CelquantIdentificationReceived {
+        analyzer_id: String,
+        device_name: String,
+        version: String,
+        message: String,
+        timestamp: DateTime<Utc>,
+    },
 }
 
 // ============================================================================

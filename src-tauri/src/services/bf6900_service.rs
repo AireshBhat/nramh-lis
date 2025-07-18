@@ -14,11 +14,11 @@ use crate::models::{Analyzer, AnalyzerStatus};
 use crate::models::hematology::{BF6900Event, HematologyResult, PatientData};
 use crate::api::commands::bf6900_handler::BF6900StoreData;
 use crate::protocol::hl7_parser::{
-    HL7ConnectionState, HL7Message, OBXSegment, PIDSegment,
+    HL7ConnectionState, HL7Message, OBXSegment, PIDSegment, CelquantIdentificationMessage,
     parse_hl7_message, create_hl7_acknowledgment,
     extract_parameter_name, extract_parameter_code, extract_abnormal_flags, 
     parse_pid_segment, parse_obx_segment, parse_msa_segment, parse_orc_segment,
-    is_supported_message_type
+    is_supported_message_type, is_celquant_identification, parse_celquant_identification, create_celquant_ack
 };
 
 // ============================================================================
@@ -426,6 +426,49 @@ impl<R: Runtime> BF6900Service<R> {
     ) -> Result<(), String> {
         // Add incoming data to buffer
         connection.message_buffer.extend_from_slice(data);
+
+        // Check for Celquant identification message first
+        if is_celquant_identification(&connection.message_buffer) {
+            log::info!("🔍 CELQUANT IDENTIFICATION MESSAGE DETECTED");
+            
+            match parse_celquant_identification(&connection.message_buffer) {
+                Ok(identification) => {
+                    log::info!("📋 CELQUANT IDENTIFICATION PARSED");
+                    log::info!("   🏥 Device: {}", identification.device_name);
+                    log::info!("   📊 Version: {}", identification.version);
+                    log::info!("   📄 Message: {}", identification.full_message);
+                    
+                    // Emit identification event
+                    let _ = event_sender
+                        .send(BF6900Event::CelquantIdentificationReceived {
+                            analyzer_id: connection.analyzer_id.clone(),
+                            device_name: identification.device_name.clone(),
+                            version: identification.version.clone(),
+                            message: identification.full_message.clone(),
+                            timestamp: identification.timestamp,
+                        })
+                        .await;
+                    
+                    // Send acknowledgment
+                    let ack = create_celquant_ack(&identification);
+                    log::info!("📤 SENDING CELQUANT IDENTIFICATION ACK");
+                    log::info!("   🎯 ACK Type: HL7 v2.3.1 format");
+                    
+                    if let Err(e) = connection.stream.write_all(&ack).await {
+                        log::error!("❌ Failed to send Celquant ACK: {}", e);
+                        return Err(format!("Failed to send acknowledgment: {}", e));
+                    }
+                    
+                    // Clear the buffer since we processed the identification message
+                    connection.message_buffer.clear();
+                    return Ok(());
+                }
+                Err(e) => {
+                    log::error!("❌ Failed to parse Celquant identification: {}", e);
+                    return Err(format!("Failed to parse Celquant identification: {}", e));
+                }
+            }
+        }
 
         // Process complete MLLP frames
         while let Some(message_data) = Self::extract_complete_mllp_message(&mut connection.message_buffer)? {
