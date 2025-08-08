@@ -58,9 +58,18 @@ fn validate_bf6900_config(analyzer: &Analyzer) -> Result<(), String> {
         }
     }
 
-    // Ensure protocol is HL7 v2.4
-    if analyzer.protocol != Protocol::Hl7V24 {
-        return Err("BF-6900 only supports HL7 v2.4 protocol".to_string());
+    // Validate external IP address if provided
+    if let Some(external_ip) = &analyzer.external_ip {
+        if !validate_ip_address(external_ip) {
+            return Err(format!("Invalid external IP address format: {}", external_ip));
+        }
+    }
+
+    // Validate external port if provided
+    if let Some(external_port) = analyzer.external_port {
+        if !validate_port(external_port) {
+            return Err(format!("Invalid external port number: {}", external_port));
+        }
     }
 
     Ok(())
@@ -350,6 +359,8 @@ fn create_default_bf6900_analyzer() -> Analyzer {
         port: Some(9100), // Standard HL7 port
         com_port: None,
         baud_rate: None,
+        external_ip: None,
+        external_port: None,
         protocol: Protocol::Hl7V24,
         status: AnalyzerStatus::Inactive,
         activate_on_start: false, // Don't auto-start by default
@@ -394,6 +405,28 @@ mod tests {
             ..valid_analyzer.clone()
         };
         assert!(validate_bf6900_config(&invalid_protocol).is_err());
+
+        // Test external IP validation
+        let invalid_external_ip = Analyzer {
+            external_ip: Some("invalid_ip".to_string()),
+            ..valid_analyzer.clone()
+        };
+        assert!(validate_bf6900_config(&invalid_external_ip).is_err());
+
+        // Test external port validation
+        let invalid_external_port = Analyzer {
+            external_port: Some(0),
+            ..valid_analyzer.clone()
+        };
+        assert!(validate_bf6900_config(&invalid_external_port).is_err());
+
+        // Test valid external fields
+        let valid_external = Analyzer {
+            external_ip: Some("10.0.0.1".to_string()),
+            external_port: Some(8080),
+            ..valid_analyzer.clone()
+        };
+        assert!(validate_bf6900_config(&valid_external).is_ok());
     }
 
     #[test]

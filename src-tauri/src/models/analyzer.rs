@@ -94,6 +94,12 @@ pub struct Analyzer {
     pub port: Option<u16>,
     pub com_port: Option<String>,
     pub baud_rate: Option<u32>,
+    /// External IP address for connecting to external LIS instruments
+    /// Used when this analyzer needs to initiate connections to other systems
+    pub external_ip: Option<String>,
+    /// External port for connecting to external LIS instruments  
+    /// Used when this analyzer needs to initiate connections to other systems
+    pub external_port: Option<u16>,
     pub protocol: Protocol,
     pub status: AnalyzerStatus,
     pub activate_on_start: bool,

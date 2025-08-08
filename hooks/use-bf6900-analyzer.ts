@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { 
   fetchBF6900Config, 
+  updateBF6900Config,
   convertAnalyzerResponse, 
   BF6900ConfigResponse, 
   startBF6900Service, 
@@ -19,6 +20,7 @@ interface useBF6900AnalyzerReturn {
   loading: boolean;
   error: string | null;
   refreshAnalyzer: () => Promise<void>;
+  updateConfiguration: (updatedAnalyzer: Partial<Analyzer>, hl7Settings?: any) => Promise<void>;
   startService: () => Promise<void>;
   stopService: () => Promise<void>;
   refreshServiceStatus: () => Promise<void>;
@@ -75,6 +77,65 @@ export function useBF6900Analyzer(): useBF6900AnalyzerReturn {
   const refreshServiceStatus = useCallback(async () => {
     await fetchServiceStatus();
   }, [fetchServiceStatus]);
+
+  const updateConfiguration = useCallback(async (updatedAnalyzer: Partial<Analyzer>, updatedHl7Settings?: any) => {
+    try {
+      setError(null);
+      console.log({ analyzer })
+      
+      // Convert frontend analyzer format to backend format
+      const backendAnalyzer = {
+        id: analyzer?.id,
+        name: updatedAnalyzer.name || analyzer?.name,
+        model: updatedAnalyzer.model || analyzer?.model,
+        serial_number: updatedAnalyzer.serialNumber || analyzer?.serialNumber,
+        manufacturer: updatedAnalyzer.manufacturer || analyzer?.manufacturer,
+        connection_type: updatedAnalyzer.connectionType?.type || analyzer?.connectionType.type,
+        ip_address: updatedAnalyzer.ipAddress || analyzer?.ipAddress,
+        port: updatedAnalyzer.port || analyzer?.port,
+        external_ip: updatedAnalyzer.external_ip,
+        external_port: updatedAnalyzer.external_port,
+        com_port: updatedAnalyzer.comPort || analyzer?.comPort,
+        baud_rate: updatedAnalyzer.baudRate || analyzer?.baudRate,
+        protocol: updatedAnalyzer.protocol?.protocol || analyzer?.protocol.protocol,
+        status: analyzer?.status.status || 'Inactive',
+        created_at: analyzer?.createdAt,
+        updated_at: analyzer?.updatedAt,
+        activate_on_start: updatedAnalyzer.activateOnStart ?? analyzer?.activateOnStart ?? false,
+      };
+
+      const settingsToUse = updatedHl7Settings || hl7Settings || {
+        timeout_ms: 30000,
+        retry_attempts: 3,
+        encoding: "UTF-8",
+        supported_message_types: ["ORU^R01", "OUL^R21"]
+      };
+
+      const response: BF6900ConfigResponse = await updateBF6900Config(backendAnalyzer, settingsToUse);
+      
+      if (response.success && response.analyzer) {
+        const convertedAnalyzer = convertAnalyzerResponse(response.analyzer);
+        setAnalyzer(convertedAnalyzer);
+        setHl7Settings(response.hl7_settings || settingsToUse);
+        toast({
+          title: "Configuration Updated",
+          description: "BF-6900 analyzer configuration has been updated successfully.",
+          variant: "default",
+        });
+      } else {
+        throw new Error(response.error_message || 'Failed to update configuration');
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update BF-6900 configuration';
+      setError(errorMessage);
+      toast({
+        title: "Configuration Update Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      throw err;
+    }
+  }, [analyzer, hl7Settings, toast]);
 
   const startService = useCallback(async () => {
     try {
@@ -207,6 +268,7 @@ export function useBF6900Analyzer(): useBF6900AnalyzerReturn {
     loading,
     error,
     refreshAnalyzer,
+    updateConfiguration,
     startService,
     stopService,
     refreshServiceStatus,

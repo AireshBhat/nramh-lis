@@ -31,3 +31,6 @@ out/*
 
 **/node_modules
 scripts/
+
+docs/Hl7V231.txt
+docs/Hl7V231.pdf

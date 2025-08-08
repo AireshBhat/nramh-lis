@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { fetchMerilConfig, convertAnalyzerResponse, MerilConfigResponse, startMerilService, stopMerilService } from '@/lib/tauri-commands';
+import { fetchMerilConfig, updateMerilConfig, convertAnalyzerResponse, MerilConfigResponse, startMerilService, stopMerilService } from '@/lib/tauri-commands';
 import { Analyzer } from '@/lib/types';
 import { listen } from '@tauri-apps/api/event';
 import { useToast } from '@/hooks/use-toast';
@@ -9,6 +9,7 @@ interface UseMerilAnalyzerReturn {
   loading: boolean;
   error: string | null;
   refreshAnalyzer: () => Promise<void>;
+  updateConfiguration: (updatedAnalyzer: Partial<Analyzer>) => Promise<void>;
   startService: () => Promise<void>;
   stopService: () => Promise<void>;
 }
@@ -45,6 +46,53 @@ export function useMerilAnalyzer(): UseMerilAnalyzerReturn {
   const refreshAnalyzer = useCallback(async () => {
     await fetchAnalyzer();
   }, [fetchAnalyzer]);
+
+  const updateConfiguration = useCallback(async (updatedAnalyzer: Partial<Analyzer>) => {
+    try {
+      setError(null);
+      
+      // Convert frontend analyzer format to backend format
+      const backendAnalyzer = {
+        id: analyzer?.id,
+        name: updatedAnalyzer.name || analyzer?.name,
+        model: updatedAnalyzer.model || analyzer?.model,
+        serial_number: updatedAnalyzer.serialNumber || analyzer?.serialNumber,
+        manufacturer: updatedAnalyzer.manufacturer || analyzer?.manufacturer,
+        connection_type: updatedAnalyzer.connectionType?.type || analyzer?.connectionType.type,
+        ip_address: updatedAnalyzer.ipAddress || analyzer?.ipAddress,
+        port: updatedAnalyzer.port || analyzer?.port,
+        external_ip: updatedAnalyzer.external_ip,
+        external_port: updatedAnalyzer.external_port,
+        com_port: updatedAnalyzer.comPort || analyzer?.comPort,
+        baud_rate: updatedAnalyzer.baudRate || analyzer?.baudRate,
+        protocol: updatedAnalyzer.protocol?.protocol || analyzer?.protocol.protocol,
+        activate_on_start: updatedAnalyzer.activateOnStart ?? analyzer?.activateOnStart ?? false,
+      };
+
+      const response: MerilConfigResponse = await updateMerilConfig(backendAnalyzer);
+      
+      if (response.success && response.analyzer) {
+        const convertedAnalyzer = convertAnalyzerResponse(response.analyzer);
+        setAnalyzer(convertedAnalyzer);
+        toast({
+          title: "Configuration Updated",
+          description: "Meril analyzer configuration has been updated successfully.",
+          variant: "default",
+        });
+      } else {
+        throw new Error(response.error_message || 'Failed to update configuration');
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update Meril configuration';
+      setError(errorMessage);
+      toast({
+        title: "Configuration Update Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      throw err;
+    }
+  }, [analyzer, toast]);
 
   const startService = useCallback(async () => {
     try {
@@ -169,6 +217,7 @@ export function useMerilAnalyzer(): UseMerilAnalyzerReturn {
     loading,
     error,
     refreshAnalyzer,
+    updateConfiguration,
     startService,
     stopService,
   };

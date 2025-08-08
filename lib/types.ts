@@ -19,6 +19,8 @@ export interface Analyzer {
   connectionType: ConnectionType;
   ipAddress?: string;
   port?: number;
+  external_ip?: string;
+  external_port?: number;
   comPort?: string;
   baudRate?: number;
   protocol: Protocol;

@@ -70,6 +70,14 @@ pub enum BF6900Event {
         device_name: String,
         version: String,
         message: String,
+        remote_ip: Option<String>,
+        remote_port: Option<u16>,
+        timestamp: DateTime<Utc>,
+    },
+    /// External address captured from connection
+    ExternalAddressCaptured {
+        external_ip: String,
+        external_port: u16,
         timestamp: DateTime<Utc>,
     },
 }

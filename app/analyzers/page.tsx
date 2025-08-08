@@ -1,7 +1,9 @@
 'use client';
 
+import { useState } from 'react';
 import { LocalIpBanner } from '@/components/analyzers/local-ip-banner';
 import { AnalyzerCard } from '@/components/analyzers/analyzer-card';
+import { AnalyzerConfigDialog } from '@/components/analyzers/analyzer-config-dialog';
 import { useLocalIp } from '@/hooks/use-local-ip';
 import { useMerilAnalyzer } from '@/hooks/use-meril-analyzer';
 import { useBF6900Analyzer } from '@/hooks/use-bf6900-analyzer';
@@ -9,14 +11,20 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Analyzer } from '@/lib/types';
 
 export default function AnalyzersPage() {
   const { localIp, isLoading: ipLoading } = useLocalIp();
+  const [configDialogOpen, setConfigDialogOpen] = useState(false);
+  const [selectedAnalyzer, setSelectedAnalyzer] = useState<Analyzer | null>(null);
+  const [configUpdateFunction, setConfigUpdateFunction] = useState<((updatedAnalyzer: Partial<Analyzer>) => Promise<void>) | null>(null);
+  
   const { 
     analyzer: merilAnalyzer, 
     loading: merilLoading, 
     error: merilError, 
     refreshAnalyzer: refreshMerilAnalyzer, 
+    updateConfiguration: updateMerilConfiguration,
     startService: startMerilService, 
     stopService: stopMerilService 
   } = useMerilAnalyzer();
@@ -26,6 +34,7 @@ export default function AnalyzersPage() {
     loading: bf6900Loading, 
     error: bf6900Error, 
     refreshAnalyzer: refreshBF6900Analyzer, 
+    updateConfiguration: updateBF6900Configuration,
     startService: startBF6900Service, 
     stopService: stopBF6900Service 
   } = useBF6900Analyzer();
@@ -75,6 +84,28 @@ export default function AnalyzersPage() {
       refreshMerilAnalyzer(),
       refreshBF6900Analyzer()
     ]);
+  };
+
+  const handleConfigureMeril = () => {
+    if (merilAnalyzer) {
+      setSelectedAnalyzer(merilAnalyzer);
+      setConfigUpdateFunction(() => updateMerilConfiguration);
+      setConfigDialogOpen(true);
+    }
+  };
+
+  const handleConfigureBF6900 = () => {
+    if (bf6900Analyzer) {
+      setSelectedAnalyzer(bf6900Analyzer);
+      setConfigUpdateFunction(() => updateBF6900Configuration);
+      setConfigDialogOpen(true);
+    }
+  };
+
+  const handleSaveConfiguration = async (updatedAnalyzer: Partial<Analyzer>) => {
+    if (configUpdateFunction) {
+      await configUpdateFunction(updatedAnalyzer);
+    }
   };
 
   const isLoading = merilLoading || bf6900Loading;
@@ -138,6 +169,9 @@ export default function AnalyzersPage() {
               onStatusChange={handleMerilStatusChange}
               onStart={handleStartMerilService}
               onStop={handleStopMerilService}
+              onConfigure={handleConfigureMeril}
+              onRefresh={refreshMerilAnalyzer}
+              refreshing={merilLoading}
             />
           )}
 
@@ -150,6 +184,9 @@ export default function AnalyzersPage() {
               onStatusChange={handleBF6900StatusChange}
               onStart={handleStartBF6900Service}
               onStop={handleStopBF6900Service}
+              onConfigure={handleConfigureBF6900}
+              onRefresh={refreshBF6900Analyzer}
+              refreshing={bf6900Loading}
             />
           )}
 
@@ -165,6 +202,15 @@ export default function AnalyzersPage() {
           )}
         </div>
       )}
+
+      {/* Configuration Dialog */}
+      <AnalyzerConfigDialog
+        analyzer={selectedAnalyzer}
+        open={configDialogOpen}
+        onOpenChange={setConfigDialogOpen}
+        onSave={handleSaveConfiguration}
+        loading={merilLoading || bf6900Loading}
+      />
     </div>
   );
 }

@@ -234,6 +234,67 @@ impl<R: Runtime> BF6900Service<R> {
         Ok(())
     }
 
+    /// Updates analyzer configuration with remote address information
+    async fn update_analyzer_with_external_address(&self, remote_addr: SocketAddr) -> Result<(), String> {
+        let mut analyzer = self.analyzer.write().await;
+        
+        // Extract IP address and port from remote address
+        let external_ip = remote_addr.ip().to_string();
+        let external_port = remote_addr.port();
+        
+        log::info!("🌐 CAPTURING EXTERNAL SYSTEM ADDRESS FROM CELQUANT IDENTIFICATION");
+        log::info!("   📍 Remote Address: {}", remote_addr);
+        log::info!("   🌐 External IP: {}", external_ip);
+        log::info!("   🔌 External Port: {}", external_port);
+        log::info!("   🏥 Analyzer ID: {}", analyzer.id);
+        
+        // Update analyzer configuration
+        let previous_ip = analyzer.external_ip.clone();
+        let previous_port = analyzer.external_port;
+        
+        analyzer.external_ip = Some(external_ip.clone());
+        analyzer.external_port = Some(external_port);
+        analyzer.updated_at = chrono::Utc::now();
+        
+        // Log configuration changes
+        if let Some(prev_ip) = previous_ip {
+            if prev_ip != external_ip {
+                log::info!("   🔄 External IP changed: {} -> {}", prev_ip, external_ip);
+            }
+        } else {
+            log::info!("   ✅ External IP set for first time: {}", external_ip);
+        }
+        
+        if let Some(prev_port) = previous_port {
+            if prev_port != external_port {
+                log::info!("   🔄 External Port changed: {} -> {}", prev_port, external_port);
+            }
+        } else {
+            log::info!("   ✅ External Port set for first time: {}", external_port);
+        }
+        
+        // Release the analyzer lock before calling save_analyzer_to_store
+        drop(analyzer);
+        
+        // Save updated configuration to store
+        match self.save_analyzer_to_store().await {
+            Ok(()) => {
+                log::info!("✅ EXTERNAL ADDRESS SUCCESSFULLY CAPTURED AND STORED");
+                log::info!("   💾 Configuration saved to store");
+                log::info!("   🌐 External IP: {}", external_ip);
+                log::info!("   🔌 External Port: {}", external_port);
+                Ok(())
+            }
+            Err(e) => {
+                log::error!("❌ FAILED TO SAVE EXTERNAL ADDRESS CONFIGURATION");
+                log::error!("   🚨 Error: {}", e);
+                log::error!("   🌐 External IP: {}", external_ip);
+                log::error!("   🔌 External Port: {}", external_port);
+                Err(format!("Failed to save external address configuration: {}", e))
+            }
+        }
+    }
+
     /// Main connection handling loop
     async fn handle_connections_loop(
         listener: Arc<Mutex<Option<TcpListener>>>,
@@ -261,8 +322,14 @@ impl<R: Runtime> BF6900Service<R> {
             // Accept incoming connections
             match timeout(Duration::from_secs(1), listener_ref.accept()).await {
                 Ok(Ok((stream, addr))) => {
+                    // Extract IP address from socket address
+                    let ip_address = addr.ip();
+                    let port = addr.port();
+                    
                     log::info!("🔗 EXTERNAL CONNECTION ESTABLISHED");
                     log::info!("   📡 Remote Address: {}", addr);
+                    log::info!("   🌐 IP Address: {}", ip_address);
+                    log::info!("   🔌 Port: {}", port);
                     log::info!("   🏥 Analyzer ID: {}", analyzer_id);
                     log::info!("   🔧 Protocol: HL7 v2.4 with MLLP framing");
 
@@ -438,13 +505,33 @@ impl<R: Runtime> BF6900Service<R> {
                     log::info!("   📊 Version: {}", identification.version);
                     log::info!("   📄 Message: {}", identification.full_message);
                     
-                    // Emit identification event
+                    // Capture external address from connection and emit event for app state handling
+                    log::info!("🌐 CAPTURING EXTERNAL SYSTEM ADDRESS");
+                    let external_ip = connection.remote_addr.ip().to_string();
+                    let external_port = connection.remote_addr.port();
+                    
+                    log::info!("   📍 Remote Address: {}", connection.remote_addr);
+                    log::info!("   🌐 External IP: {}", external_ip);
+                    log::info!("   🔌 External Port: {}", external_port);
+                    
+                    // Emit event to notify about external address capture
+                    let _ = event_sender
+                        .send(BF6900Event::ExternalAddressCaptured {
+                            external_ip,
+                            external_port,
+                            timestamp: chrono::Utc::now(),
+                        })
+                        .await;
+                    
+                    // Emit enhanced identification event with remote address info
                     let _ = event_sender
                         .send(BF6900Event::CelquantIdentificationReceived {
                             analyzer_id: connection.analyzer_id.clone(),
                             device_name: identification.device_name.clone(),
                             version: identification.version.clone(),
                             message: identification.full_message.clone(),
+                            remote_ip: Some(connection.remote_addr.ip().to_string()),
+                            remote_port: Some(connection.remote_addr.port()),
                             timestamp: identification.timestamp,
                         })
                         .await;
@@ -810,6 +897,58 @@ impl<R: Runtime> BF6900Service<R> {
     /// Gets the current analyzer configuration
     pub async fn get_analyzer_config(&self) -> Analyzer {
         self.analyzer.read().await.clone()
+    }
+
+    /// Updates analyzer configuration with external address from CELQUANT identification
+    pub async fn update_external_address(&self, external_ip: String, external_port: u16) -> Result<(), String> {
+        log::info!("🌐 UPDATING ANALYZER CONFIGURATION WITH EXTERNAL ADDRESS");
+        log::info!("   🌐 External IP: {}", external_ip);
+        log::info!("   🔌 External Port: {}", external_port);
+        
+        let mut analyzer = self.analyzer.write().await;
+        
+        // Log previous values if they exist
+        if let Some(prev_ip) = &analyzer.external_ip {
+            if prev_ip != &external_ip {
+                log::info!("   🔄 External IP changed: {} -> {}", prev_ip, external_ip);
+            }
+        } else {
+            log::info!("   ✅ External IP set for first time: {}", external_ip);
+        }
+        
+        if let Some(prev_port) = analyzer.external_port {
+            if prev_port != external_port {
+                log::info!("   🔄 External Port changed: {} -> {}", prev_port, external_port);
+            }
+        } else {
+            log::info!("   ✅ External Port set for first time: {}", external_port);
+        }
+        
+        // Update analyzer configuration
+        analyzer.external_ip = Some(external_ip.clone());
+        analyzer.external_port = Some(external_port);
+        analyzer.updated_at = chrono::Utc::now();
+        
+        // Release the lock before calling save_analyzer_to_store
+        drop(analyzer);
+        
+        // Save updated configuration to store
+        match self.save_analyzer_to_store().await {
+            Ok(()) => {
+                log::info!("✅ EXTERNAL ADDRESS SUCCESSFULLY UPDATED AND STORED");
+                log::info!("   💾 Configuration saved to store");
+                log::info!("   🌐 External IP: {}", external_ip);
+                log::info!("   🔌 External Port: {}", external_port);
+                Ok(())
+            }
+            Err(e) => {
+                log::error!("❌ FAILED TO SAVE EXTERNAL ADDRESS CONFIGURATION");
+                log::error!("   🚨 Error: {}", e);
+                log::error!("   🌐 External IP: {}", external_ip);
+                log::error!("   🔌 External Port: {}", external_port);
+                Err(format!("Failed to save external address configuration: {}", e))
+            }
+        }
     }
 
     /// Updates connection health status based on activity and errors

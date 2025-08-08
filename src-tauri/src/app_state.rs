@@ -111,8 +111,9 @@ impl<R: Runtime> AppState<R> {
         // Start event handler for BF-6900 frontend communication
         let app_handle_clone = app_handle.clone();
         let his_client_clone = his_client.clone();
+        let bf6900_service_clone = bf6900_service.clone();
         tokio::spawn(async move {
-            Self::handle_bf6900_events(app_handle_clone, bf6900_event_receiver, his_client_clone).await;
+            Self::handle_bf6900_events(app_handle_clone, bf6900_event_receiver, his_client_clone, bf6900_service_clone).await;
         });
 
         let app_state = Self {
@@ -231,6 +232,8 @@ impl<R: Runtime> AppState<R> {
             port: Some(5600), // Default port
             com_port: None,
             baud_rate: None,
+            external_ip: None,
+            external_port: None,
             protocol: crate::models::Protocol::Astm,
             status: crate::models::AnalyzerStatus::Inactive,
             activate_on_start: true, // Don't auto-start by default
@@ -463,6 +466,8 @@ impl<R: Runtime> AppState<R> {
             port: Some(9100), // Standard HL7 port
             com_port: None,
             baud_rate: None,
+            external_ip: None,
+            external_port: None,
             protocol: crate::models::Protocol::Hl7V231,
             status: crate::models::AnalyzerStatus::Inactive,
             activate_on_start: true, // Don't auto-start by default
@@ -476,6 +481,7 @@ impl<R: Runtime> AppState<R> {
         app: AppHandle<R>,
         mut event_receiver: mpsc::Receiver<crate::models::hematology::BF6900Event>,
         his_client: Arc<HisClient>,
+        bf6900_service: Arc<BF6900Service<R>>,
     ) {
         while let Some(event) = event_receiver.recv().await {
             match event {
@@ -604,9 +610,14 @@ impl<R: Runtime> AppState<R> {
                     device_name,
                     version,
                     message,
+                    remote_ip,
+                    remote_port,
                     timestamp,
                 } => {
                     log::info!("Celquant identification received for analyzer {}: {} - {}", analyzer_id, device_name, version);
+                    if let (Some(ip), Some(port)) = (&remote_ip, &remote_port) {
+                        log::info!("   Remote address: {}:{}", ip, port);
+                    }
 
                     // Emit event to frontend
                     let _ = app.emit(
@@ -616,6 +627,30 @@ impl<R: Runtime> AppState<R> {
                             "device_name": device_name,
                             "version": version,
                             "message": message,
+                            "remote_ip": remote_ip,
+                            "remote_port": remote_port,
+                            "timestamp": timestamp
+                        }),
+                    );
+                }
+                BF6900Event::ExternalAddressCaptured {
+                    external_ip,
+                    external_port,
+                    timestamp,
+                } => {
+                    log::info!("External address captured: {}:{}", external_ip, external_port);
+                    
+                    // Update the BF-6900 analyzer configuration with external address
+                    if let Err(e) = bf6900_service.update_external_address(external_ip.clone(), external_port).await {
+                        log::error!("Failed to update analyzer configuration with external address: {}", e);
+                    }
+                    
+                    // Emit event to frontend
+                    let _ = app.emit(
+                        "bf6900:external-address-captured",
+                        serde_json::json!({
+                            "external_ip": external_ip,
+                            "external_port": external_port,
                             "timestamp": timestamp
                         }),
                     );

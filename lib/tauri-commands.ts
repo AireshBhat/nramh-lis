@@ -10,6 +10,8 @@ export interface AnalyzerResponse {
   connection_type: string;
   ip_address?: string;
   port?: number;
+  external_ip?: string;
+  external_port?: number;
   com_port?: string;
   baud_rate?: number;
   protocol: string;
@@ -59,6 +61,8 @@ export function convertAnalyzerResponse(response: AnalyzerResponse) {
     connectionType: { type: response.connection_type as 'Serial' | 'TcpIp' },
     ipAddress: response.ip_address,
     port: response.port,
+    external_ip: response.external_ip,
+    external_port: response.external_port,
     comPort: response.com_port,
     baudRate: response.baud_rate,
     protocol: { protocol: response.protocol as 'Astm' | 'Hl7' },
@@ -72,6 +76,10 @@ export function convertAnalyzerResponse(response: AnalyzerResponse) {
 // Meril commands
 export const fetchMerilConfig = async (): Promise<MerilConfigResponse> => {
   return invoke('fetch_meril_config');
+};
+
+export const updateMerilConfig = async (analyzer: any): Promise<MerilConfigResponse> => {
+  return invoke('update_meril_config', { analyzer });
 };
 
 export const startMerilService = async (): Promise<void> => {
@@ -91,7 +99,8 @@ export const updateBF6900Config = async (
   analyzer: any,
   hl7Settings: HL7Settings
 ): Promise<BF6900ConfigResponse> => {
-  return invoke('update_bf6900_config', { analyzer, hl7_settings: hl7Settings });
+  console.log({ analyzer, hl7Settings })
+  return invoke('update_bf6900_config', { analyzer, hl7Settings });
 };
 
 export const getBF6900ServiceStatus = async (): Promise<BF6900ServiceStatus> => {
